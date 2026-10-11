@@ -1,0 +1,413 @@
+{
+  "sticker-1-washington-skyline": {
+    "source": "msim-stickers-print-01.png",
+    "src": "/images/products/sticker-1-washington-skyline.webp",
+    "width": 1200,
+    "height": 776,
+    "bytes": 86426,
+    "variants": [
+      {
+        "src": "/images/products/sticker-1-washington-skyline-400.webp",
+        "width": 400,
+        "height": 259,
+        "bytes": 27598
+      },
+      {
+        "src": "/images/products/sticker-1-washington-skyline-800.webp",
+        "width": 800,
+        "height": 517,
+        "bytes": 56226
+      },
+      {
+        "src": "/images/products/sticker-1-washington-skyline.webp",
+        "width": 1200,
+        "height": 776,
+        "bytes": 86426
+      }
+    ],
+    "lossless": true,
+    "alpha": true
+  },
+  "sticker-2-seattle-skyline": {
+    "source": "msim-stickers-print-02.png",
+    "src": "/images/products/sticker-2-seattle-skyline.webp",
+    "width": 1200,
+    "height": 1200,
+    "bytes": 90606,
+    "variants": [
+      {
+        "src": "/images/products/sticker-2-seattle-skyline-400.webp",
+        "width": 400,
+        "height": 400,
+        "bytes": 27456
+      },
+      {
+        "src": "/images/products/sticker-2-seattle-skyline-800.webp",
+        "width": 800,
+        "height": 800,
+        "bytes": 58180
+      },
+      {
+        "src": "/images/products/sticker-2-seattle-skyline.webp",
+        "width": 1200,
+        "height": 1200,
+        "bytes": 90606
+      }
+    ],
+    "lossless": true,
+    "alpha": true
+  },
+  "sticker-3-purple-husky": {
+    "source": "msim-stickers-print-05.png",
+    "src": "/images/products/sticker-3-purple-husky.webp",
+    "width": 1200,
+    "height": 1200,
+    "bytes": 164174,
+    "variants": [
+      {
+        "src": "/images/products/sticker-3-purple-husky-400.webp",
+        "width": 400,
+        "height": 400,
+        "bytes": 49332
+      },
+      {
+        "src": "/images/products/sticker-3-purple-husky-800.webp",
+        "width": 800,
+        "height": 800,
+        "bytes": 108262
+      },
+      {
+        "src": "/images/products/sticker-3-purple-husky.webp",
+        "width": 1200,
+        "height": 1200,
+        "bytes": 164174
+      }
+    ],
+    "lossless": true,
+    "alpha": true
+  },
+  "sticker-4-gold-husky": {
+    "source": "msim-stickers-print-04.png",
+    "src": "/images/products/sticker-4-gold-husky.webp",
+    "width": 1200,
+    "height": 1200,
+    "bytes": 190904,
+    "variants": [
+      {
+        "src": "/images/products/sticker-4-gold-husky-400.webp",
+        "width": 400,
+        "height": 400,
+        "bytes": 61628
+      },
+      {
+        "src": "/images/products/sticker-4-gold-husky-800.webp",
+        "width": 800,
+        "height": 800,
+        "bytes": 127908
+      },
+      {
+        "src": "/images/products/sticker-4-gold-husky.webp",
+        "width": 1200,
+        "height": 1200,
+        "bytes": 190904
+      }
+    ],
+    "lossless": true,
+    "alpha": true
+  },
+  "sticker-5-mount-rainier-stamp": {
+    "source": "msim-stickers-print-03.png",
+    "src": "/images/products/sticker-5-mount-rainier-stamp.webp",
+    "width": 941,
+    "height": 1200,
+    "bytes": 192354,
+    "variants": [
+      {
+        "src": "/images/products/sticker-5-mount-rainier-stamp-400.webp",
+        "width": 314,
+        "height": 400,
+        "bytes": 53258
+      },
+      {
+        "src": "/images/products/sticker-5-mount-rainier-stamp-800.webp",
+        "width": 627,
+        "height": 800,
+        "bytes": 123572
+      },
+      {
+        "src": "/images/products/sticker-5-mount-rainier-stamp.webp",
+        "width": 941,
+        "height": 1200,
+        "bytes": 192354
+      }
+    ],
+    "lossless": true,
+    "alpha": true
+  },
+  "cap": {
+    "source": "cap.png",
+    "src": "/images/products/cap.webp",
+    "width": 1200,
+    "height": 980,
+    "bytes": 61954,
+    "variants": [
+      {
+        "src": "/images/products/cap-400.webp",
+        "width": 400,
+        "height": 327,
+        "bytes": 4970
+      },
+      {
+        "src": "/images/products/cap-800.webp",
+        "width": 800,
+        "height": 654,
+        "bytes": 30494
+      },
+      {
+        "src": "/images/products/cap.webp",
+        "width": 1200,
+        "height": 980,
+        "bytes": 61954
+      }
+    ],
+    "lossless": false,
+    "alpha": false
+  },
+  "cap-design": {
+    "source": "cap design.png",
+    "src": "/images/products/cap-design.webp",
+    "width": 1200,
+    "height": 980,
+    "bytes": 135810,
+    "variants": [
+      {
+        "src": "/images/products/cap-design-400.webp",
+        "width": 400,
+        "height": 327,
+        "bytes": 35560
+      },
+      {
+        "src": "/images/products/cap-design-800.webp",
+        "width": 800,
+        "height": 654,
+        "bytes": 83020
+      },
+      {
+        "src": "/images/products/cap-design.webp",
+        "width": 1200,
+        "height": 980,
+        "bytes": 135810
+      }
+    ],
+    "lossless": true,
+    "alpha": false
+  },
+  "crewneck-sweatshirt": {
+    "source": "crewneck sweatshirt 2.png",
+    "src": "/images/products/crewneck-sweatshirt.webp",
+    "width": 1200,
+    "height": 980,
+    "bytes": 32084,
+    "variants": [
+      {
+        "src": "/images/products/crewneck-sweatshirt-400.webp",
+        "width": 400,
+        "height": 327,
+        "bytes": 4452
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt-800.webp",
+        "width": 800,
+        "height": 654,
+        "bytes": 15672
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt.webp",
+        "width": 1200,
+        "height": 980,
+        "bytes": 32084
+      }
+    ],
+    "lossless": false,
+    "alpha": false
+  },
+  "crewneck-sweatshirt-alternate": {
+    "source": "crewneck sweatshirt 1.png",
+    "src": "/images/products/crewneck-sweatshirt-alternate.webp",
+    "width": 1200,
+    "height": 980,
+    "bytes": 45330,
+    "variants": [
+      {
+        "src": "/images/products/crewneck-sweatshirt-alternate-400.webp",
+        "width": 400,
+        "height": 327,
+        "bytes": 7022
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt-alternate-800.webp",
+        "width": 800,
+        "height": 654,
+        "bytes": 23824
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt-alternate.webp",
+        "width": 1200,
+        "height": 980,
+        "bytes": 45330
+      }
+    ],
+    "lossless": false,
+    "alpha": false
+  },
+  "crewneck-sweatshirt-front-design": {
+    "source": "crewneck sweatshirt front design.png",
+    "src": "/images/products/crewneck-sweatshirt-front-design.webp",
+    "width": 1200,
+    "height": 980,
+    "bytes": 127350,
+    "variants": [
+      {
+        "src": "/images/products/crewneck-sweatshirt-front-design-400.webp",
+        "width": 400,
+        "height": 327,
+        "bytes": 33166
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt-front-design-800.webp",
+        "width": 800,
+        "height": 654,
+        "bytes": 76982
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt-front-design.webp",
+        "width": 1200,
+        "height": 980,
+        "bytes": 127350
+      }
+    ],
+    "lossless": true,
+    "alpha": false
+  },
+  "crewneck-sweatshirt-back-design": {
+    "source": "crewneck sweatshirt back design.png",
+    "src": "/images/products/crewneck-sweatshirt-back-design.webp",
+    "width": 1200,
+    "height": 980,
+    "bytes": 111908,
+    "variants": [
+      {
+        "src": "/images/products/crewneck-sweatshirt-back-design-400.webp",
+        "width": 400,
+        "height": 327,
+        "bytes": 26032
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt-back-design-800.webp",
+        "width": 800,
+        "height": 654,
+        "bytes": 65334
+      },
+      {
+        "src": "/images/products/crewneck-sweatshirt-back-design.webp",
+        "width": 1200,
+        "height": 980,
+        "bytes": 111908
+      }
+    ],
+    "lossless": true,
+    "alpha": false
+  },
+  "keychain-1-msim-ischool": {
+    "source": "3D Printed Keychain 1 - 1.jpg",
+    "src": "/images/products/keychain-1-msim-ischool.webp",
+    "width": 492,
+    "height": 388,
+    "bytes": 14674,
+    "variants": [
+      {
+        "src": "/images/products/keychain-1-msim-ischool-400.webp",
+        "width": 400,
+        "height": 315,
+        "bytes": 10778
+      },
+      {
+        "src": "/images/products/keychain-1-msim-ischool.webp",
+        "width": 492,
+        "height": 388,
+        "bytes": 14674
+      }
+    ],
+    "lossless": false,
+    "alpha": false
+  },
+  "keychain-1-msim-ischool-render": {
+    "source": "3D Printed Keychain 1 - 2.png",
+    "src": "/images/products/keychain-1-msim-ischool-render.webp",
+    "width": 622,
+    "height": 446,
+    "bytes": 10196,
+    "variants": [
+      {
+        "src": "/images/products/keychain-1-msim-ischool-render-400.webp",
+        "width": 400,
+        "height": 287,
+        "bytes": 7112
+      },
+      {
+        "src": "/images/products/keychain-1-msim-ischool-render.webp",
+        "width": 622,
+        "height": 446,
+        "bytes": 10196
+      }
+    ],
+    "lossless": false,
+    "alpha": true
+  },
+  "keychain-2-msim-tag": {
+    "source": "3D Printed Keychain 2 - 1.jpg",
+    "src": "/images/products/keychain-2-msim-tag.webp",
+    "width": 541,
+    "height": 440,
+    "bytes": 13870,
+    "variants": [
+      {
+        "src": "/images/products/keychain-2-msim-tag-400.webp",
+        "width": 400,
+        "height": 325,
+        "bytes": 8388
+      },
+      {
+        "src": "/images/products/keychain-2-msim-tag.webp",
+        "width": 541,
+        "height": 440,
+        "bytes": 13870
+      }
+    ],
+    "lossless": false,
+    "alpha": false
+  },
+  "keychain-2-msim-tag-render": {
+    "source": "3D Printed Keychain 2 - 2.png",
+    "src": "/images/products/keychain-2-msim-tag-render.webp",
+    "width": 526,
+    "height": 287,
+    "bytes": 9528,
+    "variants": [
+      {
+        "src": "/images/products/keychain-2-msim-tag-render-400.webp",
+        "width": 400,
+        "height": 218,
+        "bytes": 6920
+      },
+      {
+        "src": "/images/products/keychain-2-msim-tag-render.webp",
+        "width": 526,
+        "height": 287,
+        "bytes": 9528
+      }
+    ],
+    "lossless": false,
+    "alpha": true
+  }
+}

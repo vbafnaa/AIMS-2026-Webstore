@@ -1,0 +1,30 @@
+---
+import Shop from '../components/Shop';
+import Brand from '../components/Brand.astro';
+import { ArrowUp, ArrowUpRight, Asterisk } from 'lucide-react';
+import '../styles/global.css';
+const url = (import.meta.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+const apiKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#462b76" />
+    <meta name="description" content="A little AIMS, wherever you go. Shop MSIM stickers, caps, crewnecks, and keychains from the Association of Information Management Students. Local pickup, no payment online." />
+    <title>AIMS — A little school spirit.</title>
+    <link rel="icon" href="/images/brand/aims-logo.webp" type="image/webp" />
+  </head>
+  <body id="top">
+    <a class="skip-link" href="#shop">Skip to the collection</a>
+    <header class="site-header"><Brand /><a class="header-link" href="#your-order">Your order <ArrowUpRight size={16} aria-hidden="true" /></a></header>
+    <main>
+      <section class="hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">THE COMMUNITY MERCH DROP</p><h1 id="hero-title">A little school spirit.<br /><em>A lot of you.</em></h1><p class="hero-description">For the laptops, the everyday fits, and the keys that go everywhere. A little piece of our community, made yours.</p><a href="#shop" class="hero-link">Find your favorites</a></div><div class="hero-art" aria-hidden="true"><div class="orbit-label">INFORMATION PEOPLE. GOOD PEOPLE.</div><img class="hero-sticker" src="/images/products/sticker-3-purple-husky-400.webp" width="400" height="400" alt="" /><Asterisk className="hero-star" size={80} strokeWidth={1.5} /><span class="hero-caption">MSIM / UW<br />AIMS COLLECTION</span></div></section>
+      <ol class="how-it-works" aria-label="How to order"><li><span class="step-number" aria-hidden="true">1</span><strong>Pick your favorites</strong></li><li><span class="step-number" aria-hidden="true">2</span><strong>Leave your email</strong></li><li><span class="step-number" aria-hidden="true">3</span><strong>Pick up & pay</strong></li></ol>
+      <noscript><p class="noscript-note">Browse the collection below. Please enable JavaScript to select items and place an order.</p></noscript>
+      <Shop url={url} apiKey={apiKey} initialEpoch={Math.floor(Date.now() / 1000)} client:load />
+    </main>
+    <footer><Brand /><p>Keeping the human in the loop.<br /><span>Association of Information Management Students</span></p><a class="back-to-top" href="#top">Back to top <ArrowUp size={16} aria-hidden="true" /></a></footer>
+  </body>
+</html>

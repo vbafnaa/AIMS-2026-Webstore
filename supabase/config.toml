@@ -1,0 +1,11 @@
+project_id = "aims-merch-shop"
+
+[db.migrations]
+schema_paths = ["./schemas/*.sql"]
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[functions.checkout]
+verify_jwt = false
