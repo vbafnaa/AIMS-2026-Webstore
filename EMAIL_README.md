@@ -14,7 +14,7 @@ This guide explains how to send AIMS order confirmations from an existing Google
 
 Google Workspace is an assumption here. If your mailbox is hosted by Microsoft 365, Gmail instructions do not apply.
 
-Customers only enter their email. They do not sign in to Google or authorize anything. Only the shop's sending account needs authorization.
+Customers enter their email and checkout details; they do not sign in to Google or authorize anything. Only the shop's sending account needs authorization.
 
 ## Option A: send through your Google Workspace mailbox
 
@@ -115,6 +115,8 @@ Example body:
 
 Bundles include an `items` array containing sticker product IDs and quantities. Translate these IDs to readable names in the email.
 
+The actual worker payload also includes `full_name`, `phone_number`, `zelle_payer_name`, `payment_reference`, `pickup_option`, and the private `payment_proof_path`. The proof image itself is not attached to the webhook or exposed through a public URL. Keep this personal and payment-related information within the shop's authorized email workflow.
+
 The adapter must authenticate the bearer token, validate the payload, escape dynamic HTML, send the email, and return 2xx only after provider acceptance. Keep a durable record of idempotency keys and provider message IDs. For ambiguous timeouts after submission, reconcile before resending where possible; a queue and local deduplication alone cannot guarantee exactly-once email delivery.
 
 If an unsent order has already been cancelled when the worker reads it, the payload type is `order-cancelled`. Handle that state explicitly. **There is no separate cancellation notification queued after an already-sent confirmation in the current implementation.**
@@ -143,7 +145,7 @@ Inspect `email_outbox.attempts`, `last_error`, `next_attempt_at`, and `sent_at` 
 
 Suggested subject: **Your AIMS pickup order is confirmed — [reference]**
 
-Include the order reference, item names, selected sizes, quantities, total, and designated pickup address. State **“Pay at pickup; no payment has been collected online.”** For sweatshirt preorders, state that pickup timing will be confirmed separately. Include a reply address customers can contact.
+Include the order reference, item names, selected sizes, quantities, total, and chosen pickup location. Do not describe the order as paid solely because a screenshot was submitted; verify payment according to the shop's process. For sweatshirt preorders, explain that distribution timing depends on order volume and will be communicated to the email provided. Include a reply address customers can contact.
 
 Use the saved order total, not current catalog prices: discounts may expire between ordering and sending.
 
@@ -154,6 +156,6 @@ Use the saved order total, not current catalog prices: discounts may expire betw
 3. Simulate a provider failure. The order must remain saved, inventory must stay deducted once, and the notification must remain retryable.
 4. Restore delivery and run scheduled dispatch. Confirm retry handling and investigate ambiguous sends before manually resending.
 5. Verify expired Google authorization or an invalid provider key produces an actionable failure rather than a false success.
-6. Set `ALLOW_EMAIL_QUEUE_ONLY=false`, configure the real pickup address, and only then open ordering in `shop_settings`.
+6. Set `ALLOW_EMAIL_QUEUE_ONLY=false`, confirm the two pickup choices and distribution notice, and only then open ordering in `shop_settings`.
 
 The existing tests cover the worker with a mocked adapter. They do not connect to Google or any email provider. No email has been sent or external account configured by adding this document.

@@ -25,15 +25,20 @@ try {
   assert.ok(ready, `Preview did not start: ${logs}`);
   browser = await chromium.launch({ ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}), headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  const cors = { 'access-control-allow-origin': base, 'access-control-allow-headers': 'apikey, content-type', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
+  const cors = { 'access-control-allow-origin': base, 'access-control-allow-headers': 'apikey, content-type, x-payment-proof-key, x-payment-proof-email', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://supabase.test/rest/v1/products?**', route => route.fulfill({ headers: cors, json: catalog }));
   await page.route('https://supabase.test/rest/v1/shop_settings?**', route => route.fulfill({ headers: cors, json: [{ id: true, orders_open: true, pickup_address: 'Test pickup address', bundle_three_cents: 399, bundle_five_cents: 999 }] }));
   const attempts = [];
+  const proofUploads = [];
   let loseFirstResponse = true;
   await page.route('https://supabase.test/functions/v1/checkout', async route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    if (route.request().headers()['content-type']?.startsWith('image/')) {
+      proofUploads.push(route.request().headers()['x-payment-proof-key']);
+      return route.fulfill({ headers: cors, json: { payment_proof_path: `${route.request().headers()['x-payment-proof-key']}.png` } });
+    }
     const body = route.request().postDataJSON();
     attempts.push(body);
     if (loseFirstResponse) { loseFirstResponse = false; await route.abort('failed'); return; }
@@ -76,12 +81,27 @@ try {
   assert.equal(attempts.length, 0, 'invalid email must not start checkout');
   await page.getByLabel('Your email', { exact: true }).fill('student@example.com');
   await page.getByRole('button', { name: 'Place pickup order' }).click();
+  await page.getByText('Enter your full name (up to 120 characters).', { exact: true }).waitFor();
+  assert.equal(attempts.length, 0, 'required customer and payment details must block checkout');
+  await page.getByLabel('Full name').fill('Student Example');
+  await page.getByLabel('Phone number').fill('+1 206 555 0100');
+  await page.getByLabel('Zelle payer name').fill('Student Example');
+  await page.locator('#pickup-ianniversary_2026_10_29').check();
+  await page.locator('#payment-proof').setInputFiles({ name: 'proof.png', mimeType: 'image/png', buffer: Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]) });
+  await page.getByText('Selected: proof.png', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Place pickup order' }).click();
   await page.getByRole('button', { name: 'Retry this order safely' }).waitFor();
   await page.reload();
   await page.getByRole('button', { name: 'Retry this order safely' }).click();
   await page.getByText('A little AIMS, reserved.', { exact: true }).waitFor();
   assert.equal(attempts.length, 2);
   assert.deepEqual(attempts[0], attempts[1], 'retry after reload must preserve key, email, total, and selections');
+  assert.equal(attempts[0].customer.full_name, 'Student Example');
+  assert.equal(attempts[0].customer.phone_number, '+1 206 555 0100');
+  assert.equal(attempts[0].customer.zelle_payer_name, 'Student Example');
+  assert.equal(attempts[0].customer.pickup_option, 'ianniversary_2026_10_29');
+  assert.equal(attempts[0].payment_proof_path, `${attempts[0].key}.png`);
+  assert.equal(proofUploads.length, 2, 'safe retry re-uploads proof under its original idempotency key');
   assert.equal(await page.locator('.count-badge').innerText(), '0');
   await mkdir('test-results', { recursive: true });
   await page.screenshot({ path: 'test-results/desktop.png', fullPage: true });

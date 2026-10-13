@@ -17,7 +17,18 @@ test('real Postgres transaction, concurrency, and access-control checks', { skip
   };
   const rpc = (name, body, key) => request(`rpc/${name}`, 'POST', body, key);
   const makeKey = () => { const key = crypto.randomUUID(); keys.push(key); return key; };
-  const place = (lines, total, key = makeKey()) => rpc('place_order', { p_key: key, p_email: `${prefix}@example.com`, p_lines: lines, p_expected_total: total });
+  const place = (lines, total, key = makeKey()) => rpc('place_order', {
+    p_key: key,
+    p_email: `${prefix}@example.com`,
+    p_lines: lines,
+    p_expected_total: total,
+    p_full_name: 'Test Student',
+    p_phone_number: '+1 206 555 0100',
+    p_zelle_payer_name: 'Test Payer',
+    p_payment_reference: '',
+    p_pickup_option: 'mgh_440',
+    p_payment_proof_path: `${key}.png`,
+  });
   const single = (id, quantity = 1, size = '') => ({ kind: 'single', product_id: id, quantity, size });
   const pack = (size, quantity = size) => ({ kind: 'bundle', size, items: [{ product_id: sticker, quantity }] });
   const stock = async id => (await request(`products?id=eq.${id}&select=stock`)).data[0].stock;
@@ -52,6 +63,15 @@ test('real Postgres transaction, concurrency, and access-control checks', { skip
       results.forEach(r => assert.equal(r.status, 200));
       assert.equal(results[0].data.id, results[1].data.id);
       assert.equal(await stock(cap), 4);
+      const saved = (await request(`orders?id=eq.${results[0].data.id}&select=full_name,phone_number,zelle_payer_name,payment_reference,pickup_option,payment_proof_path`)).data[0];
+      assert.deepEqual(saved, {
+        full_name: 'Test Student',
+        phone_number: '+1 206 555 0100',
+        zelle_payer_name: 'Test Payer',
+        payment_reference: '',
+        pickup_option: 'mgh_440',
+        payment_proof_path: `${key}.png`,
+      });
       assert.match((await place([single(cap, 2)], 3998, key)).data.message, /KEY_REUSED/);
     });
     await t.test('server price comparison prevents stale or altered totals', async () => {

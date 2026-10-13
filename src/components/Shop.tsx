@@ -9,15 +9,48 @@ type Single = { kind: 'single'; product_id: string; quantity: number; size: stri
 type Pack = { kind: 'bundle'; size: 3 | 5; items: { product_id: string; quantity: number }[] };
 type Line = Single | Pack;
 type Settings = { pickup_address: string; orders_open: boolean; bundle_three_cents: number; bundle_five_cents: number };
-type Attempt = { key: string; email: string; lines: Line[]; expected_total_cents: number };
+type Customer = { full_name: string; phone_number: string; zelle_payer_name: string; payment_reference: string; pickup_option: string };
+type PaymentProof = { file_name: string; content_type: string; data: string };
+type Attempt = { key: string; email: string; lines: Line[]; expected_total_cents: number; customer: Customer; payment_proof: PaymentProof };
 type Receipt = { id: string; total_cents: number; pickup_address: string; status: string; lines: { name: string; size?: string; quantity: number; total_cents: number; preorder: boolean }[] };
 type Asset = { src: string; width: number; height: number; variants: { src: string; width: number }[] };
 const assets = imageData as Record<string, Asset>;
 const storageKey = 'aims-pending-checkout';
+const maxProofBytes = 1_048_576;
+const proofTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const pickupOptions = [
+  { value: 'mgh_440', label: 'MGH 440', detail: 'Pickup time will be decided via further communication.' },
+  { value: 'ianniversary_2026_10_29', label: 'iAnniversary · October 29, 3–6 PM', detail: 'October 29, 3–6 PM.' },
+];
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const validEmail = (value: string) => value.trim().length <= 254 && emailPattern.test(value.trim());
 const defaults: Settings = { pickup_address: '', orders_open: false, bundle_three_cents: 399, bundle_five_cents: 999 };
+const blankCustomer: Customer = { full_name: '', phone_number: '', zelle_payer_name: '', payment_reference: '', pickup_option: '' };
 const packHint = 'Three or more individual stickers cost more than a pack. Choose a 3 or 5 sticker pack instead.';
+
+function proofBytes(proof: PaymentProof): ArrayBuffer {
+  const decoded = atob(proof.data);
+  const bytes = Uint8Array.from(decoded, char => char.charCodeAt(0));
+  const buffer = new ArrayBuffer(bytes.length);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
+function readProof(file: File): Promise<PaymentProof> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('The payment screenshot could not be read.'));
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== 'string' || !result.includes(',')) {
+        reject(new Error('The payment screenshot could not be read.'));
+        return;
+      }
+      resolve({ file_name: file.name, content_type: file.type, data: result.slice(result.indexOf(',') + 1) });
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function ProductImage({ name, alt, eager = false }: { name: string; alt: string; eager?: boolean }) {
   const asset = assets[name];
@@ -42,6 +75,9 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
   const [sizes, setSizes] = useState<Record<string, string>>({ crewneck: 'M' });
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [customer, setCustomer] = useState<Customer>(blankCustomer);
+  const [paymentProof, setPaymentProof] = useState<PaymentProof | null>(null);
+  const [proofError, setProofError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -52,7 +88,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
   const [packChoices, setPackChoices] = useState(['sticker-1', 'sticker-2', 'sticker-3', 'sticker-4', 'sticker-5']);
   const configured = Boolean(url && apiKey);
   const locked = busy || Boolean(pending);
-  const ready = configured && loaded && settings.orders_open && Boolean(settings.pickup_address);
+  const ready = configured && loaded && settings.orders_open;
 
   async function refresh() {
     if (!configured) return;
@@ -85,6 +121,8 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
         const attempt: Attempt = JSON.parse(saved);
         if (typeof attempt.key === 'string' && typeof attempt.email === 'string' && Array.isArray(attempt.lines)) {
           setPending(attempt); setLines(attempt.lines); setEmail(attempt.email);
+          if (attempt.customer && typeof attempt.customer === 'object') setCustomer(attempt.customer);
+          if (attempt.payment_proof && typeof attempt.payment_proof.data === 'string') setPaymentProof(attempt.payment_proof);
           setError('A previous checkout needs confirmation. Retry it safely below before making another order.');
         }
       }
@@ -178,14 +216,82 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
       return;
     }
     setEmailError('');
-    const attempt = pending || { key: crypto.randomUUID(), email: email.trim(), lines, expected_total_cents: total };
+    if (!pending) {
+      const phoneDigits = customer.phone_number.replace(/\D/g, '');
+      const invalidField = !customer.full_name.trim() || customer.full_name.trim().length > 120 ? 'full-name'
+        : phoneDigits.length < 7 || phoneDigits.length > 15 || !/^[+0-9 ().-]+$/.test(customer.phone_number.trim()) ? 'phone-number'
+        : !customer.zelle_payer_name.trim() || customer.zelle_payer_name.trim().length > 120 ? 'zelle-payer-name'
+        : !customer.pickup_option ? 'pickup-option'
+        : !paymentProof ? 'payment-proof'
+        : '';
+      if (invalidField) {
+        const messages: Record<string, string> = {
+          'full-name': 'Enter your full name (up to 120 characters).',
+          'phone-number': 'Enter a valid phone number with 7 to 15 digits.',
+          'zelle-payer-name': 'Enter the name shown on your Zelle payment.',
+          'pickup-option': 'Choose a pickup location.',
+          'payment-proof': 'Upload a screenshot of your completed payment.',
+        };
+        if (invalidField === 'payment-proof') setProofError(messages[invalidField]);
+        setError(messages[invalidField]);
+        document.getElementById(invalidField)?.focus();
+        return;
+      }
+    }
+    const attempt = pending || {
+      key: crypto.randomUUID(),
+      email: email.trim(),
+      lines,
+      expected_total_cents: total,
+      customer: {
+        full_name: customer.full_name.trim(),
+        phone_number: customer.phone_number.trim(),
+        zelle_payer_name: customer.zelle_payer_name.trim(),
+        payment_reference: customer.payment_reference.trim(),
+        pickup_option: customer.pickup_option,
+      },
+      payment_proof: paymentProof!,
+    };
     try { sessionStorage.setItem(storageKey, JSON.stringify(attempt)); }
     catch { setError('Enable browser session storage so we can safely retry your order.'); return; }
     setPending(attempt); setBusy(true); setError('');
     try {
+      const proofResponse = await fetch(`${url}/functions/v1/checkout`, {
+        method: 'POST',
+        headers: {
+          apikey: apiKey,
+          'Content-Type': attempt.payment_proof.content_type,
+          'x-payment-proof-key': attempt.key,
+          'x-payment-proof-email': attempt.email.trim().toLowerCase(),
+        },
+        body: proofBytes(attempt.payment_proof),
+        signal: AbortSignal.timeout(30000),
+      });
+      let proofResult: { error?: string; payment_proof_path?: string };
+      try { proofResult = await proofResponse.json(); }
+      catch {
+        proofResult = { error: proofResponse.status === 413
+          ? 'The screenshot upload exceeded the server limit. Choose a smaller image and try again.'
+          : 'The payment screenshot could not be uploaded. Retry this order safely.' };
+      }
+      if (!proofResponse.ok) {
+        if ([400, 409, 413, 415].includes(proofResponse.status)) {
+          sessionStorage.removeItem(storageKey); setPending(null);
+        }
+        setError(proofResult.error || 'The payment screenshot could not be uploaded. Retry this order safely.');
+        return;
+      }
       const response = await fetch(`${url}/functions/v1/checkout`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', apikey: apiKey },
-        body: JSON.stringify(attempt), signal: AbortSignal.timeout(30000),
+        body: JSON.stringify({
+          key: attempt.key,
+          email: attempt.email,
+          lines: attempt.lines,
+          expected_total_cents: attempt.expected_total_cents,
+          customer: attempt.customer,
+          payment_proof_path: proofResult.payment_proof_path,
+        }),
+        signal: AbortSignal.timeout(30000),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -199,7 +305,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
         return;
       }
       sessionStorage.removeItem(storageKey); setPending(null);
-      setReceipt(result.order); setLines([]); setEmail('');
+      setReceipt(result.order); setLines([]); setEmail(''); setCustomer(blankCustomer); setPaymentProof(null);
       await refresh();
     } catch { setError('We could not confirm the result. Retry the same order below; it will not be placed twice.'); }
     finally { setBusy(false); }
@@ -230,7 +336,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
 
     <aside className="order-panel" id="your-order" aria-labelledby="order-title"><div className="order-heading"><h2 id="order-title">Your order</h2><span className="count-badge">{count}</span></div>
       {showPackPrompt && <div className="pack-prompt" role="status"><p>{packHint}</p><button type="button" onClick={openPackBuilder}>Choose a pack</button></div>}
-      {receipt && <div className="confirmation" id="order-confirmation" tabIndex={-1} role="status"><span className="eyebrow">{receipt.status === 'cancelled' ? 'ORDER CANCELLED' : 'YOU’RE ALL SET'}</span><h3>{receipt.status === 'cancelled' ? 'This order was cancelled.' : 'A little AIMS, reserved.'}</h3><p>Reference: <strong>{receipt.id}</strong></p>{receipt.lines.map((l, i) => <p key={i}>{l.quantity} × {l.name} {l.size} — {money(l.total_cents)}</p>)}<p><strong>{money(receipt.total_cents)} · pay at pickup</strong></p><p>{receipt.pickup_address}</p>{receipt.lines.some(l => l.preorder) && <p>Your sweatshirt is a preorder. Its pickup date will be confirmed separately.</p>}<p>Confirmation email queued. Keep this reference for pickup.</p></div>}
+      {receipt && <div className="confirmation" id="order-confirmation" tabIndex={-1} role="status"><span className="eyebrow">{receipt.status === 'cancelled' ? 'ORDER CANCELLED' : 'YOU’RE ALL SET'}</span><h3>{receipt.status === 'cancelled' ? 'This order was cancelled.' : 'A little AIMS, reserved.'}</h3><p>Reference: <strong>{receipt.id}</strong></p>{receipt.lines.map((l, i) => <p key={i}>{l.quantity} × {l.name} {l.size} — {money(l.total_cents)}</p>)}<p><strong>{money(receipt.total_cents)} · payment proof submitted</strong></p><p>{receipt.pickup_address}</p>{receipt.lines.some(l => l.preorder) && <p>Sweatshirt distribution timing will be based on the number of orders and shared by email.</p>}<p>Confirmation email queued. Keep this reference for pickup.</p></div>}
       {lines.length === 0 ? <div className="empty-order"><span className="empty-order-icon"><ShoppingBag size={20} aria-hidden="true" /></span><p>A little something for you?</p><small>Add your favorites to get started.</small></div> : <ul className="order-lines">{lines.map((line, i) => {
         const name = line.kind === 'single' ? find(line.product_id).name : `${line.size}-sticker pack`;
         const product = line.kind === 'single' ? find(line.product_id) : null;
@@ -239,16 +345,37 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
           <QuantityStepper value={line.kind === 'single' ? line.quantity : 1} label={`${name} in your order`} minusDisabled={locked} plusDisabled={locked || !canIncrease} onMinus={() => line.kind === 'single' && product ? changeSingle(product, line.size, -1) : changePack(i, -1)} onPlus={() => line.kind === 'single' && product ? changeSingle(product, line.size, 1) : changePack(i, 1)} />
           <button type="button" disabled={locked} onClick={() => commit(lines.filter((_, index) => index !== i), `${name} removed.`)} aria-label={`Remove ${name}`}>Remove</button></div><span>{money(lineTotal(line))}</span></li>;
       })}</ul>}
-      <div className="order-total"><span>Total at pickup</span><strong>{money(total)}</strong></div>
-      <form onSubmit={checkout} noValidate><label className="email-label" htmlFor="email">Your email</label><input id="email" type="email" name="email" placeholder="you@uw.edu" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={254} pattern={emailPattern.source} required value={email} disabled={locked} aria-invalid={Boolean(emailError)} aria-describedby={emailError ? 'email-help email-error' : 'email-help'} onChange={e => { setEmail(e.target.value); if (emailError && validEmail(e.target.value)) setEmailError(''); }} onBlur={() => setEmailError(email && !validEmail(email) ? 'Enter a valid email address, such as you@example.com.' : '')} /><p id="email-help" className="field-help">For your confirmation and pickup updates.</p>
+      <div className="order-total"><span>Order total</span><strong>{money(total)}</strong></div>
+      <form onSubmit={checkout} noValidate>
+        <label className="email-label" htmlFor="email">Your email</label><input id="email" type="email" name="email" placeholder="you@uw.edu" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={254} pattern={emailPattern.source} required value={email} disabled={locked} aria-invalid={Boolean(emailError)} aria-describedby={emailError ? 'email-help email-error' : 'email-help'} onChange={e => { setEmail(e.target.value); if (emailError && validEmail(e.target.value)) setEmailError(''); }} onBlur={() => setEmailError(email && !validEmail(email) ? 'Enter a valid email address, such as you@example.com.' : '')} /><p id="email-help" className="field-help">For your confirmation and pickup updates.</p>
+        <label className="checkout-field" htmlFor="full-name">Full name<input id="full-name" name="full_name" autoComplete="name" maxLength={120} required value={customer.full_name} disabled={locked} onChange={e => setCustomer({ ...customer, full_name: e.target.value })} /></label>
+        <label className="checkout-field" htmlFor="phone-number">Phone number<input id="phone-number" name="phone_number" type="tel" autoComplete="tel" inputMode="tel" maxLength={30} required value={customer.phone_number} disabled={locked} onChange={e => setCustomer({ ...customer, phone_number: e.target.value })} /></label>
+        <label className="checkout-field" htmlFor="zelle-payer-name">Zelle payer name<input id="zelle-payer-name" name="zelle_payer_name" autoComplete="name" maxLength={120} required value={customer.zelle_payer_name} disabled={locked} onChange={e => setCustomer({ ...customer, zelle_payer_name: e.target.value })} /></label>
+        <label className="checkout-field" htmlFor="payment-reference">Payment reference / memo <span>(optional)</span><input id="payment-reference" name="payment_reference" maxLength={500} value={customer.payment_reference} disabled={locked} onChange={e => setCustomer({ ...customer, payment_reference: e.target.value })} /></label>
+        <fieldset id="pickup-option" className="pickup-options" disabled={locked}><legend>Pickup location</legend>{pickupOptions.map(option => <label key={option.value}><input id={`pickup-${option.value}`} type="radio" name="pickup_option" value={option.value} required checked={customer.pickup_option === option.value} onChange={e => setCustomer({ ...customer, pickup_option: e.target.value })} /><span><strong>{option.label}</strong><small>{option.detail}</small></span></label>)}</fieldset>
+        <label className="checkout-field proof-field" htmlFor="payment-proof">Payment screenshot<input id="payment-proof" name="payment_proof" type="file" accept="image/jpeg,image/png,image/webp" required disabled={locked} aria-describedby="proof-help" onChange={async e => {
+          const file = e.currentTarget.files?.[0];
+          setProofError('');
+          if (!file) { setPaymentProof(null); return; }
+          if (!proofTypes.includes(file.type) || file.size === 0 || file.size > maxProofBytes) {
+            setPaymentProof(null);
+            setProofError('Choose a PNG, JPG, or WEBP screenshot smaller than 1 MB.');
+            e.currentTarget.value = '';
+            return;
+          }
+          try { setPaymentProof(await readProof(file)); }
+          catch (readError) { setPaymentProof(null); setProofError(readError instanceof Error ? readError.message : 'The payment screenshot could not be read.'); }
+        }} /><span id="proof-help" className="field-help">Upload a PNG, JPG, or WEBP image up to 1 MB. The image is stored privately with your order.</span>{paymentProof && <small className="proof-selected">Selected: {paymentProof.file_name}</small>}</label>
+        {proofError && <p className="form-error" role="alert">{proofError}</p>}
+        <p className="field-help">Sweatshirt distribution will be based on the number of orders. Details will be communicated to the email provided.</p>
         {emailError && <p id="email-error" className="form-error" role="alert">{emailError}</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         <button type="submit" className="primary-button checkout-button" disabled={busy || lines.length === 0 || (!pending && !ready)}>{busy ? 'Confirming your order…' : pending ? 'Retry this order safely' : 'Place pickup order'}<ArrowUpRight size={16} aria-hidden="true" /></button>
         {!ready && !pending && <p className="availability-note">{configured ? loaded ? 'Orders will open soon.' : 'Checking current availability…' : 'The collection is open for browsing. Ordering opens soon.'}</p>}
         {configured && !loaded && <button className="text-button" type="button" disabled={busy} onClick={() => { setError(''); void refresh(); }}>Refresh availability</button>}
-        <p className="payment-note">No payment now. Pay when you pick up.</p>
+        <p className="payment-note">Upload your Zelle payment confirmation to place your order.</p>
       </form>
-      <div className="pickup-note"><MapPin size={20} aria-hidden="true" /><div><strong>Made for local pickup</strong><p>{settings.pickup_address || 'Pickup location will be announced before orders open.'}</p><p>Sweatshirts are made to order. We’ll confirm their pickup timing separately.</p></div></div>
+      <div className="pickup-note"><MapPin size={20} aria-hidden="true" /><div><strong>Made for local pickup</strong><p>Choose MGH 440 or iAnniversary on October 29, 3–6 PM above.</p></div></div>
     </aside>
     <a className="mobile-order-link" href="#your-order">Your order · {count} items <strong>{money(total)} <ArrowDown size={16} aria-hidden="true" /></strong></a>
   </div>;

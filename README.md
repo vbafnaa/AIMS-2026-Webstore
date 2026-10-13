@@ -2,7 +2,7 @@
 
 A single-page pickup shop built with Astro, React, Tailwind, and Supabase. Static HTML for the page; one hydrated React shop; plain `fetch` for Supabase reads and checkout. No client-side Supabase SDK, accounts, payment processor, or realtime connection.
 
-Customers choose items, enter an email, and pay at pickup. Stock is committed when an order is placed. Sweatshirts are made-to-order preorders with no finite stock.
+Customers choose items, provide contact and Zelle payment details, upload a payment screenshot, and select a pickup location. Stock is committed when an order is placed. Sweatshirts are made-to-order preorders with no finite stock.
 
 ## Run locally
 
@@ -30,9 +30,11 @@ These values are intentionally public. Never put a service-role key in an Astro 
 3. Deploy `supabase/functions/checkout/index.ts` as the `checkout` Edge Function. `supabase/config.toml` disables JWT verification because this is a guest checkout. The function applies its own validation, origin check, and per-email rate limit. The notification dispatcher separately requires a secret bearer token.
 4. Configure the function secrets described in `supabase/.env.functions.example`. Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in its Edge runtime. Set `ALLOWED_ORIGIN` to the exact frontend origin, without a trailing slash (for local development, `http://127.0.0.1:4321`).
 5. Configure email delivery and scheduling below. Run the real database tests against a disposable project and inspect Supabase's security advisors before launch.
-6. In `shop_settings`, set the designated `pickup_address` and `orders_open = true`. All customer-facing prices include exactly the listed item prices, in USD; there is no shipping, payment, or additional tax calculation in this implementation.
+6. In `shop_settings`, set `orders_open = true`. Checkout offers MGH 440 (pickup time coordinated by email) and iAnniversary on October 29, 3–6 PM. All customer-facing prices include exactly the listed item prices, in USD; there is no shipping or additional tax calculation in this implementation.
 
-The catalog and settings have read-only public access. Orders, line items, customer email, rate-limit buckets, and notification records have RLS enabled and no anonymous access. Privileged functions are `SECURITY INVOKER`, with execute access revoked from `PUBLIC`, `anon`, and `authenticated`; only the backend service role can call them.
+The catalog and settings have read-only public access. Orders, contact details, Zelle information, payment references, proof-image paths, line items, rate-limit buckets, and notification records have RLS enabled and no anonymous access. The `payment-proofs` Storage bucket is private and accepts only PNG, JPG, and WEBP images up to 1 MB. The checkout Edge Function validates the image and uploads it with the server-only service role; the order row stores its private object path. Privileged functions are `SECURITY INVOKER`, with execute access revoked from `PUBLIC`, `anon`, and `authenticated`; only the backend service role can call them.
+
+For an existing project, prepare and review a migration for the order contact/payment/pickup columns, private Storage bucket, and new `place_order` signature before deploying the updated Edge Function. Do not rerun the initial schema on a live project. The live Supabase project is not changed by edits in this repository.
 
 ## Checkout contract and concurrency
 
@@ -42,6 +44,14 @@ The catalog and settings have read-only public access. Orders, line items, custo
 {
   "key": "a-client-generated-uuid",
   "email": "customer@example.com",
+  "customer": {
+    "full_name": "Customer Name",
+    "phone_number": "+1 206 555 0100",
+    "zelle_payer_name": "Customer Name",
+    "payment_reference": "Optional payment memo",
+    "pickup_option": "mgh_440"
+  },
+  "payment_proof_path": "<private path returned by binary screenshot upload>",
   "expected_total_cents": 3398,
   "lines": [
     { "kind": "single", "product_id": "crewneck", "quantity": 1, "size": "XS" },
@@ -53,11 +63,13 @@ The catalog and settings have read-only public access. Orders, line items, custo
 }
 ```
 
+Full name, phone number, Zelle payer name, pickup choice, and payment screenshot are required. Payment reference/memo is optional. The browser sends the screenshot as a separate raw-binary request (not Base64 in the order JSON), in PNG, JPG, or WEBP format, up to 1 MB. Images are kept in the private `payment-proofs` bucket; the order row records the image path and customer/pickup details. The browser keeps an unresolved checkout and screenshot in session storage so retrying after a lost response uses the same idempotency key and details. Sweatshirt distribution depends on the number of orders; timing is communicated to the email address on the order.
+
 The database calculates prices independently. The submitted total is only an equality check: changed prices produce a conflict and require the customer to review the new total. Each pack is a separate line; prices are 3 for $3.99 or 5 for $9.99 exactly as requested, without automatic best-price optimization.
 
 `place_order` locks product rows in ID order, aggregates singles and packs by product, checks all stock, then inserts the order/items and decrements inventory in the same transaction. Any failure rolls back everything. A per-key advisory lock and unique key make simultaneous retries safe. A reused key with different contents is rejected. Quantities are positive integers, capped at 99 total units per product per order, and an order has at most 50 lines.
 
-The browser retains an unresolved request in **sessionStorage**, including its email, until the result is known. The form stays locked after an ambiguous network error; retrying after a reload uses the same request. Successful checkout or a definitive validation rejection clears the pending request. Closing the tab ends this recovery session, so customers should retry unresolved orders before closing it.
+The browser retains an unresolved request in **sessionStorage**, including its customer details and screenshot, until the result is known. The form stays locked after an ambiguous network error; retrying after a reload uses the same request. Successful checkout or a definitive validation rejection clears the pending request. Closing the tab ends this recovery session, so customers should retry unresolved orders before closing it.
 
 Success returns `{ order: { id, total_cents, pickup_address, status, lines }, email_status: "queued" }`. The screen shows the reference even if email is delayed. Other open pages may show stale stock until refreshed; the transaction remains authoritative.
 
@@ -77,6 +89,10 @@ The adapter receives `Authorization: Bearer <token>`, `Idempotency-Key: order-<u
 The same checkout function has a private dispatch path: a **POST with `Authorization: Bearer <EMAIL_DISPATCH_SECRET>`** runs the worker (no browser origin required). Configure a scheduler such as Supabase Cron to call it once per minute. Store the URL and bearer token in scheduler secrets/Vault, not in tracked SQL. Use `Content-Type: application/json` and body `{}`. This reuses the existing function; there is no second public checkout or email endpoint.
 
 Each worker claims up to 10 messages with `FOR UPDATE SKIP LOCKED`, a unique lease token, and a 5-minute lease. Failures back off up to one hour, with 8 attempts before manual review. Immediate dispatch is best effort; the scheduler is required for reliable recovery. Set a scheduler timeout of at least 120 seconds. Monitor unsent messages and Edge Function errors. `supabase/operations.sql` includes failed-delivery inspection and retry examples.
+
+The email worker's order payload also contains the customer's full name, phone number, Zelle payer name, optional payment reference, selected pickup option, and private `payment_proof_path`. The proof file itself is not included or made public.
+
+Customers submit payment through Zelle before placing the order. Email wording should confirm receipt of the order and submission of payment proof, not claim that payment has been verified; sweatshirt distribution timing is based on order volume and will be sent to the provided email.
 
 ## Inventory and fulfillment
 

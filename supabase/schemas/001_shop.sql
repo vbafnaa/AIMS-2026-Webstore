@@ -28,6 +28,12 @@ create table public.orders (
   idempotency_key uuid not null unique,
   request jsonb not null,
   email text not null,
+  full_name text not null check (length(trim(full_name)) between 1 and 120),
+  phone_number text not null check (length(trim(phone_number)) between 7 and 30),
+  zelle_payer_name text not null check (length(trim(zelle_payer_name)) between 1 and 120),
+  payment_reference text not null default '' check (length(payment_reference) <= 500),
+  pickup_option text not null check (pickup_option in ('mgh_440','ianniversary_2026_10_29')),
+  payment_proof_path text not null,
   total_cents integer not null check (total_cents > 0),
   pickup_address text not null,
   lines jsonb not null,
@@ -59,6 +65,13 @@ create table public.checkout_limits (
   hits integer not null
 );
 
+insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+values ('payment-proofs', 'payment-proofs', false, 1048576, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update set
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
 alter table public.products enable row level security;
 alter table public.shop_settings enable row level security;
 alter table public.orders enable row level security;
@@ -84,7 +97,11 @@ begin
 end;
 $$;
 
-create function public.place_order(p_key uuid, p_email text, p_lines jsonb, p_expected_total integer)
+create function public.place_order(
+  p_key uuid, p_email text, p_lines jsonb, p_expected_total integer,
+  p_full_name text, p_phone_number text, p_zelle_payer_name text, p_payment_reference text,
+  p_pickup_option text, p_payment_proof_path text
+)
 returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare
   existing public.orders;
@@ -104,17 +121,40 @@ declare
   order_uuid uuid;
   requested record;
   normalized_email text := lower(trim(p_email));
+  pickup_label text;
   request_body jsonb;
 begin
   if p_key is null or normalized_email is null or length(normalized_email) > 254
      or normalized_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
-     or p_lines is null or jsonb_typeof(p_lines) <> 'array' then
+     or p_lines is null or jsonb_typeof(p_lines) <> 'array'
+     or p_full_name is null or length(trim(p_full_name)) not between 1 and 120
+     or p_phone_number is null or length(trim(p_phone_number)) not between 7 and 30
+     or length(regexp_replace(p_phone_number, '[^0-9]', '', 'g')) not between 7 and 15
+     or trim(p_phone_number) !~ '^[+0-9 ().-]+$'
+     or p_zelle_payer_name is null or length(trim(p_zelle_payer_name)) not between 1 and 120
+     or coalesce(length(p_payment_reference), 0) > 500
+     or (
+       p_payment_proof_path is distinct from p_key::text || '.jpg'
+       and p_payment_proof_path is distinct from p_key::text || '.png'
+       and p_payment_proof_path is distinct from p_key::text || '.webp'
+     ) then
     raise exception 'INVALID_ORDER' using errcode = 'P0001';
   end if;
+  pickup_label := case p_pickup_option
+    when 'mgh_440' then 'MGH 440'
+    when 'ianniversary_2026_10_29' then 'iAnniversary — October 29, 3–6 PM'
+    else null
+  end;
+  if pickup_label is null then raise exception 'INVALID_PICKUP'; end if;
   if jsonb_array_length(p_lines) < 1 or jsonb_array_length(p_lines) > 50 then
     raise exception 'INVALID_ORDER';
   end if;
-  request_body := jsonb_build_object('email', normalized_email, 'lines', p_lines, 'expected_total_cents', p_expected_total);
+  request_body := jsonb_build_object(
+    'email', normalized_email, 'lines', p_lines, 'expected_total_cents', p_expected_total,
+    'full_name', trim(p_full_name), 'phone_number', trim(p_phone_number),
+    'zelle_payer_name', trim(p_zelle_payer_name), 'payment_reference', trim(coalesce(p_payment_reference, '')),
+    'pickup_option', p_pickup_option, 'payment_proof_path', p_payment_proof_path
+  );
   -- Serialize retries of the same key, including retries after a lost response.
   perform pg_advisory_xact_lock(hashtextextended(p_key::text, 0));
   select * into existing from public.orders where idempotency_key = p_key;
@@ -124,7 +164,7 @@ begin
       'pickup_address', existing.pickup_address, 'status', existing.status, 'lines', existing.lines);
   end if;
   select * into config from public.shop_settings where id;
-  if not found or not config.orders_open or length(trim(config.pickup_address)) = 0 then
+  if not found or not config.orders_open then
     raise exception 'SHOP_CLOSED';
   end if;
 
@@ -186,8 +226,13 @@ begin
     if not product.preorder and product.stock < requested.qty then raise exception 'OUT_OF_STOCK'; end if;
   end loop;
 
-  insert into public.orders(idempotency_key, request, email, total_cents, pickup_address, lines)
-    values (p_key, request_body, normalized_email, total, config.pickup_address, receipt) returning id into order_uuid;
+  insert into public.orders(
+    idempotency_key, request, email, full_name, phone_number, zelle_payer_name, payment_reference,
+    pickup_option, payment_proof_path, total_cents, pickup_address, lines
+  ) values (
+    p_key, request_body, normalized_email, trim(p_full_name), trim(p_phone_number), trim(p_zelle_payer_name),
+    trim(coalesce(p_payment_reference, '')), p_pickup_option, p_payment_proof_path, total, pickup_label, receipt
+  ) returning id into order_uuid;
   insert into public.order_items(order_id, product_id, size, quantity, finite_stock)
     select order_uuid, a->>'product_id', a->>'size', sum((a->>'quantity')::integer)::integer, not p.preorder
     from jsonb_array_elements(allocation) a join public.products p on p.id = a->>'product_id'
@@ -232,8 +277,10 @@ returns jsonb language sql security invoker set search_path = '' as $$
     update public.email_outbox e set attempts = attempts + 1, lease_token = gen_random_uuid(),
       lease_until = now() + interval '5 minutes'
     from candidates c where e.order_id = c.order_id returning e.*
-  ) select coalesce(jsonb_agg(jsonb_build_object('order_id', o.id, 'email', o.email, 'total_cents', o.total_cents,
-    'pickup_address', o.pickup_address, 'lines', o.lines, 'status', o.status, 'lease_token', c.lease_token)), '[]'::jsonb)
+  ) select coalesce(jsonb_agg(jsonb_build_object('order_id', o.id, 'email', o.email, 'full_name', o.full_name,
+    'phone_number', o.phone_number, 'zelle_payer_name', o.zelle_payer_name, 'payment_reference', o.payment_reference,
+    'pickup_option', o.pickup_option, 'pickup_address', o.pickup_address, 'payment_proof_path', o.payment_proof_path,
+    'total_cents', o.total_cents, 'lines', o.lines, 'status', o.status, 'lease_token', c.lease_token)), '[]'::jsonb)
     from claimed c join public.orders o on o.id = c.order_id;
 $$;
 
@@ -247,7 +294,7 @@ returns void language sql security invoker set search_path = '' as $$
   where order_id = p_order_id and lease_token = p_token;
 $$;
 
-revoke execute on function public.place_order(uuid,text,jsonb,integer), public.cancel_order(uuid),
+revoke execute on function public.place_order(uuid,text,jsonb,integer,text,text,text,text,text,text), public.cancel_order(uuid),
   public.take_checkout_slot(text), public.claim_emails(), public.finish_email(uuid,uuid,boolean,text) from public, anon, authenticated;
-grant execute on function public.place_order(uuid,text,jsonb,integer), public.cancel_order(uuid),
+grant execute on function public.place_order(uuid,text,jsonb,integer,text,text,text,text,text,text), public.cancel_order(uuid),
   public.take_checkout_slot(text), public.claim_emails(), public.finish_email(uuid,uuid,boolean,text) to service_role;

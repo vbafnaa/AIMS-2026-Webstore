@@ -106,3 +106,18 @@ footer .brand-divider { height: 32px; }
 
 .image-badges { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 4px; flex-wrap: wrap; }
 .image-badges .image-tag { position: static; letter-spacing: .4px; white-space: nowrap; padding: 5px; }
+
+.checkout-field { display: block; margin: 18px 0; font-size: 11px; font-weight: 600; }
+.checkout-field > span { color: #8c8195; font-weight: 400; }
+.checkout-field input:not([type=file]) { display: block; width: 100%; margin-top: 7px; padding: 11px 12px; border: 1px solid #dcd5e1; border-radius: 3px; background: transparent; font-size: 12px; }
+.checkout-field input[type=file] { display: block; width: 100%; margin-top: 8px; padding: 10px; border: 1px dashed #c8bad3; border-radius: 3px; background: #fffefa; font-size: 10px; }
+.checkout-field .field-help { display: block; margin: 8px 0 0; font-weight: 400; line-height: 1.6; }
+.proof-selected { display: block; margin-top: 8px; color: #462b76; overflow-wrap: anywhere; }
+.pickup-options { display: grid; gap: 8px; margin: 20px 0; padding: 0; border: 0; }
+.pickup-options legend { margin-bottom: 9px; font-size: 11px; font-weight: 600; }
+.pickup-options label { display: flex; gap: 10px; padding: 12px; border: 1px solid #ded8e2; border-radius: 3px; cursor: pointer; }
+.pickup-options label:has(input:checked) { border-color: #462b76; background: #f5f1f8; }
+.pickup-options input { margin: 2px 0 0; accent-color: #462b76; }
+.pickup-options span { display: grid; gap: 5px; }
+.pickup-options strong { font-size: 11px; font-weight: 600; }
+.pickup-options small { color: #8c8195; font-size: 10px; line-height: 1.5; }
