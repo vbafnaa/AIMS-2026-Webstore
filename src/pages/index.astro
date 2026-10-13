@@ -4,7 +4,7 @@ import Brand from '../components/Brand.astro';
 import { ArrowUp, ArrowUpRight, Asterisk } from 'lucide-react';
 import '../styles/global.css';
 const url = (import.meta.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-const apiKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+const apiKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY || import.meta.env.SUPABASE_PUBLISHABLE_KEY || '';
 ---
 <!doctype html>
 <html lang="en">
