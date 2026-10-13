@@ -133,3 +133,5 @@ This starts a test server with mocked Supabase responses and verifies shopping, 
 Deploy `dist/` to a static host, with the two public Supabase variables available at build time. Set the function's allowed origin to the final HTTPS origin. This repository does not deploy or create a Supabase project automatically. Before opening orders, configure the pickup address, email adapter and scheduler; run the database/browser suites; and place one end-to-end test order through the deployed site.
 
 Implementation verification in the development sandbox: unit/asset tests, TypeScript checks and production build can run. Network restrictions, blocked listening ports/Chrome launch, and missing Supabase project credentials prevent live database tests, browser QA and deployment here.
+#   A I M S - 2 0 2 6 - W e b s t o r e  
+ 
