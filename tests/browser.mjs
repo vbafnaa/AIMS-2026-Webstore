@@ -42,6 +42,15 @@ try {
   await page.goto(base);
   await page.getByText('50 available', { exact: true }).waitFor();
   assert.equal(await page.locator('.product-card').count(), 9);
+  const stickerCard = page.locator('.product-card').filter({ has: page.getByRole('heading', { name: 'Sticker 1', exact: true }) });
+  await stickerCard.getByRole('button', { name: 'Add to order' }).click();
+  await stickerCard.getByRole('button', { name: 'Increase Sticker 1 in collection' }).click();
+  await stickerCard.getByRole('button', { name: 'Increase Sticker 1 in collection' }).click();
+  await page.getByText('Three or more individual stickers cost more than a pack.', { exact: false }).waitFor();
+  await page.getByRole('button', { name: 'Decrease Sticker 1 in your order' }).click();
+  await page.getByRole('button', { name: 'Decrease Sticker 1 in your order' }).click();
+  await page.getByRole('button', { name: 'Decrease Sticker 1 in your order' }).click();
+  assert.equal(await page.locator('.count-badge').innerText(), '0');
   await page.getByRole('button', { name: 'Wear it', exact: true }).click();
   assert.equal(await page.locator('.product-card').count(), 2);
   await page.getByLabel('Crewneck Sweatshirt size').selectOption('XS');
