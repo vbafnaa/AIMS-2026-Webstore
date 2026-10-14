@@ -142,7 +142,7 @@ begin
   end if;
   pickup_label := case p_pickup_option
     when 'mgh_440' then 'MGH 440'
-    when 'ianniversary_2026_10_29' then 'iAnniversary — October 29, 3–6 PM'
+    when 'ianniversary_2026_10_29' then 'iAnniversary: October 29, 3–6 PM'
     else null
   end;
   if pickup_label is null then raise exception 'INVALID_PICKUP'; end if;

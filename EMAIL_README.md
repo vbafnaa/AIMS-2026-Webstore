@@ -143,7 +143,7 @@ Inspect `email_outbox.attempts`, `last_error`, `next_attempt_at`, and `sent_at` 
 
 ## Confirmation content
 
-Suggested subject: **Your AIMS pickup order is confirmed — [reference]**
+Suggested subject: **Your AIMS pickup order is confirmed: [reference]**
 
 Include the order reference, item names, selected sizes, quantities, total, and chosen pickup location. Do not describe the order as paid solely because a screenshot was submitted; verify payment according to the shop's process. For sweatshirt preorders, explain that distribution timing depends on order volume and will be communicated to the email provided. Include a reply address customers can contact.
 
