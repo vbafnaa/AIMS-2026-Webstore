@@ -42,7 +42,7 @@ test('real Postgres transaction, concurrency, and access-control checks', { skip
       { id: sticker, name: 'Test sticker', category: 'stickers', price_cents: 299, stock: 20, preorder: false },
       { id: preorder, name: 'Test preorder', category: 'wear', price_cents: 2999, stock: null, preorder: true, sizes: ['XS','S','M','L','XL','XXL'] },
     ])).status < 300);
-    assert.ok((await request('shop_settings', 'POST', { id: true, pickup_address: 'Test pickup only', orders_open: true, bundle_three_cents: 599, bundle_five_cents: 999 })).status < 300);
+    assert.ok((await request('shop_settings', 'POST', { id: true, pickup_address: 'Test pickup only', orders_open: true, bundle_three_cents: 599, bundle_five_cents: 899 })).status < 300);
 
     await t.test('two concurrent buyers of the last unit: only one succeeds', async () => {
       const results = await Promise.all([place([single(cap)], 1999), place([single(cap)], 1999)]);

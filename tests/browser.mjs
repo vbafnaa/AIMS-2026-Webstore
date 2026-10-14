@@ -29,7 +29,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://supabase.test/rest/v1/products?**', route => route.fulfill({ headers: cors, json: catalog }));
-  await page.route('https://supabase.test/rest/v1/shop_settings?**', route => route.fulfill({ headers: cors, json: [{ id: true, orders_open: true, pickup_address: 'Test pickup address', bundle_three_cents: 599, bundle_five_cents: 999 }] }));
+  await page.route('https://supabase.test/rest/v1/shop_settings?**', route => route.fulfill({ headers: cors, json: [{ id: true, orders_open: true, pickup_address: 'Test pickup address', bundle_three_cents: 599, bundle_five_cents: 899 }] }));
   const attempts = [];
   const proofUploads = [];
   let loseFirstResponse = true;
@@ -47,7 +47,7 @@ try {
   await page.goto(base);
   await page.getByAltText('Zelle payment QR code for AIMS at ainforms@uw.edu').waitFor();
   assert.match(await page.locator('.pack-options button').nth(0).innerText(), /5\.99/);
-  assert.match(await page.locator('.pack-options button').nth(1).innerText(), /9\.99/);
+  assert.match(await page.locator('.pack-options button').nth(1).innerText(), /8\.99/);
   await page.getByText('50 available', { exact: true }).waitFor();
   assert.equal(await page.locator('.product-card').count(), 9);
   const stickerCard = page.locator('.product-card').filter({ has: page.getByRole('heading', { name: 'Sticker 1', exact: true }) });

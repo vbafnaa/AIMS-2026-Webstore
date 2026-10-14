@@ -15,4 +15,4 @@ on conflict (id) do nothing;
 update public.products set early_bird_price_cents = 1499, early_bird_ends_at_epoch = 1793343600 where id = 'cap';
 update public.products set price_cents = 3499, early_bird_price_cents = 2999, early_bird_ends_at_epoch = 1793343600, sizes = '{S,M,L,XL,XXL}' where id = 'crewneck';
 insert into public.shop_settings(id) values (true) on conflict (id) do nothing;
-update public.shop_settings set bundle_three_cents = 599, bundle_five_cents = 999 where id = true;
+update public.shop_settings set bundle_three_cents = 599, bundle_five_cents = 899 where id = true;
