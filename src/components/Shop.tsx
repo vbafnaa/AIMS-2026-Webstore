@@ -24,7 +24,7 @@ const pickupOptions = [
 ];
 const emailPattern = /^[^\s@]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$/;
 const validEmail = (value: string) => value.trim().length <= 254 && emailPattern.test(value.trim());
-const defaults: Settings = { pickup_address: '', orders_open: false, bundle_three_cents: 399, bundle_five_cents: 749 };
+const defaults: Settings = { pickup_address: '', orders_open: false, bundle_three_cents: 599, bundle_five_cents: 999 };
 const blankCustomer: Customer = { full_name: '', phone_number: '', zelle_payer_name: '', payment_reference: '', pickup_option: '' };
 const packHint = 'Three or more individual stickers cost more than a pack. Choose a 3 or 5 sticker pack instead.';
 

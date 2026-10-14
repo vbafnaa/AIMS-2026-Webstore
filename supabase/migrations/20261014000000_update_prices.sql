@@ -8,7 +8,8 @@ set price_cents = 3499,
 where id = 'crewneck';
 
 update public.shop_settings
-set bundle_five_cents = 749
+set bundle_three_cents = 599,
+    bundle_five_cents = 999
 where id = true;
 
 commit;
