@@ -183,9 +183,10 @@ Deno.serve(async (req: Request) => {
     if (!body || typeof body.email !== 'string' || body.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()) ||
         typeof body.key !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.key) ||
         !Number.isSafeInteger(body.expected_total_cents) || body.expected_total_cents < 1 ||
+        !Number.isSafeInteger(body.paid_total_confirmed_cents) || body.paid_total_confirmed_cents !== body.expected_total_cents ||
         !Array.isArray(body.lines) || body.lines.length < 1 || body.lines.length > 50 ||
         typeof body.payment_proof_path !== 'string' ||
-        !new RegExp(`^${body.key}\\.(jpg|png|webp)$`, 'i').test(body.payment_proof_path)) return respond({ error: 'Check your email, payment screenshot, and selected items.' }, 400);
+        !new RegExp(`^${body.key}\\.(jpg|png|webp)$`, 'i').test(body.payment_proof_path)) return respond({ error: 'Confirm payment of the displayed total and check your email, screenshot, and selected items.' }, 400);
     const customer = body.customer;
     if (!customer || typeof customer !== 'object' ||
         typeof customer.full_name !== 'string' || !customer.full_name.trim() || customer.full_name.trim().length > 120 ||

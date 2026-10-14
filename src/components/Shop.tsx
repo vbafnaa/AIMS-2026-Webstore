@@ -11,7 +11,7 @@ type Line = Single | Pack;
 type Settings = { pickup_address: string; orders_open: boolean; bundle_three_cents: number; bundle_five_cents: number };
 type Customer = { full_name: string; phone_number: string; zelle_payer_name: string; payment_reference: string; pickup_option: string };
 type PaymentProof = { file_name: string; content_type: string; data: string };
-type Attempt = { key: string; email: string; lines: Line[]; expected_total_cents: number; customer: Customer; payment_proof: PaymentProof };
+type Attempt = { key: string; email: string; lines: Line[]; expected_total_cents: number; customer: Customer; payment_proof: PaymentProof; paid_total_confirmed_cents: number };
 type Receipt = { id: string; total_cents: number; pickup_address: string; status: string; lines: { name: string; size?: string; quantity: number; total_cents: number; preorder: boolean }[] };
 type Asset = { src: string; width: number; height: number; variants: { src: string; width: number }[] };
 const assets = imageData as Record<string, Asset>;
@@ -22,9 +22,9 @@ const pickupOptions = [
   { value: 'mgh_440', label: 'MGH 440', detail: 'Pickup time will be decided via further communication.' },
   { value: 'ianniversary_2026_10_29', label: 'iAnniversary · October 29, 3–6 PM', detail: 'October 29, 3–6 PM.' },
 ];
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailPattern = /^[^\s@]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$/;
 const validEmail = (value: string) => value.trim().length <= 254 && emailPattern.test(value.trim());
-const defaults: Settings = { pickup_address: '', orders_open: false, bundle_three_cents: 399, bundle_five_cents: 999 };
+const defaults: Settings = { pickup_address: '', orders_open: false, bundle_three_cents: 399, bundle_five_cents: 749 };
 const blankCustomer: Customer = { full_name: '', phone_number: '', zelle_payer_name: '', payment_reference: '', pickup_option: '' };
 const packHint = 'Three or more individual stickers cost more than a pack. Choose a 3 or 5 sticker pack instead.';
 
@@ -69,13 +69,19 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
   const [epoch, setEpoch] = useState(initialEpoch);
   const [clockOffset, setClockOffset] = useState(0);
   const [products, setProducts] = useState<Product[]>(catalog);
+  const [detailsProductId, setDetailsProductId] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings>(defaults);
   const [category, setCategory] = useState('all');
   const [lines, setLines] = useState<Line[]>([]);
   const [sizes, setSizes] = useState<Record<string, string>>({ crewneck: 'M' });
   const [email, setEmail] = useState('');
+  const [emailConfirmation, setEmailConfirmation] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [emailConfirmationError, setEmailConfirmationError] = useState('');
   const [customer, setCustomer] = useState<Customer>(blankCustomer);
+  const [phoneConfirmation, setPhoneConfirmation] = useState('');
+  const [phoneConfirmationError, setPhoneConfirmationError] = useState('');
+  const [paidTotalConfirmedCents, setPaidTotalConfirmedCents] = useState<number | null>(null);
   const [paymentProof, setPaymentProof] = useState<PaymentProof | null>(null);
   const [proofError, setProofError] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -123,6 +129,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
           setPending(attempt); setLines(attempt.lines); setEmail(attempt.email);
           if (attempt.customer && typeof attempt.customer === 'object') setCustomer(attempt.customer);
           if (attempt.payment_proof && typeof attempt.payment_proof.data === 'string') setPaymentProof(attempt.payment_proof);
+          if (Number.isSafeInteger(attempt.paid_total_confirmed_cents)) setPaidTotalConfirmedCents(attempt.paid_total_confirmed_cents);
           setError('A previous checkout needs confirmation. Retry it safely below before making another order.');
         }
       }
@@ -159,6 +166,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
   function commit(next: Line[], message: string) {
     setLines(next);
     setReceipt(null);
+    setPaidTotalConfirmedCents(null);
     setNotice(message);
   }
 
@@ -210,6 +218,11 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
   async function checkout(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || (!pending && !ready)) return;
+    if (paidTotalConfirmedCents !== total) {
+      setError('Confirm that you have paid the total shown above before placing the order.');
+      document.getElementById('paid-total-confirmation')?.focus();
+      return;
+    }
     if (!pending && !validEmail(email)) {
       setEmailError('Enter a valid email address, such as you@example.com.');
       document.getElementById('email')?.focus();
@@ -217,9 +230,17 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
     }
     setEmailError('');
     if (!pending) {
+      if (!validEmail(emailConfirmation) || email.trim().toLowerCase() !== emailConfirmation.trim().toLowerCase()) {
+        setEmailConfirmationError('Enter the same valid email address in both fields.');
+        setError('The email addresses must match.');
+        document.getElementById('email-confirmation')?.focus();
+        return;
+      }
+      setEmailConfirmationError('');
       const phoneDigits = customer.phone_number.replace(/\D/g, '');
       const invalidField = !customer.full_name.trim() || customer.full_name.trim().length > 120 ? 'full-name'
         : phoneDigits.length < 7 || phoneDigits.length > 15 || !/^[+0-9 ().-]+$/.test(customer.phone_number.trim()) ? 'phone-number'
+        : phoneConfirmation.replace(/\D/g, '') !== phoneDigits ? 'phone-confirmation'
         : !customer.zelle_payer_name.trim() || customer.zelle_payer_name.trim().length > 120 ? 'zelle-payer-name'
         : !customer.pickup_option ? 'pickup-option'
         : !paymentProof ? 'payment-proof'
@@ -228,17 +249,19 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
         const messages: Record<string, string> = {
           'full-name': 'Enter your full name (up to 120 characters).',
           'phone-number': 'Enter a valid phone number with 7 to 15 digits.',
+          'phone-confirmation': 'Enter the same phone number in both fields.',
           'zelle-payer-name': 'Enter the name shown on your Zelle payment.',
           'pickup-option': 'Choose a pickup location.',
           'payment-proof': 'Upload a screenshot of your completed payment.',
         };
+        if (invalidField === 'phone-confirmation') setPhoneConfirmationError(messages[invalidField]);
         if (invalidField === 'payment-proof') setProofError(messages[invalidField]);
         setError(messages[invalidField]);
         document.getElementById(invalidField)?.focus();
         return;
       }
     }
-    const attempt = pending || {
+    const attempt: Attempt = pending ? { ...pending, paid_total_confirmed_cents: total } : {
       key: crypto.randomUUID(),
       email: email.trim(),
       lines,
@@ -251,6 +274,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
         pickup_option: customer.pickup_option,
       },
       payment_proof: paymentProof!,
+      paid_total_confirmed_cents: total,
     };
     try { sessionStorage.setItem(storageKey, JSON.stringify(attempt)); }
     catch { setError('Enable browser session storage so we can safely retry your order.'); return; }
@@ -288,6 +312,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
           email: attempt.email,
           lines: attempt.lines,
           expected_total_cents: attempt.expected_total_cents,
+          paid_total_confirmed_cents: attempt.paid_total_confirmed_cents,
           customer: attempt.customer,
           payment_proof_path: proofResult.payment_proof_path,
         }),
@@ -305,7 +330,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
         return;
       }
       sessionStorage.removeItem(storageKey); setPending(null);
-      setReceipt(result.order); setLines([]); setEmail(''); setCustomer(blankCustomer); setPaymentProof(null);
+      setReceipt(result.order); setLines([]); setEmail(''); setEmailConfirmation(''); setCustomer(blankCustomer); setPhoneConfirmation(''); setPaymentProof(null); setPaidTotalConfirmedCents(null);
       await refresh();
     } catch { setError('We could not confirm the result. Retry the same order below; it will not be placed twice.'); }
     finally { setBusy(false); }
@@ -320,14 +345,23 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
         const quantity = singleQty(p.id, size);
         const label = `${p.name}${size ? ` ${size}` : ''}`;
         return <article key={p.id} className="product-card">
-        <div className={`product-image ${p.category}`}><ProductImage name={p.image} alt={`${p.name}: ${p.detail}`} eager={index < 3} />{p.preorder && <div className="image-badges"><span className="image-tag">PREORDER</span><span className="image-tag">MADE TO ORDER</span></div>}{!p.preorder && isEarlyBird(p, epoch) && <span className="image-tag">EARLY BIRD - UNTIL 29 OCT</span>}{!p.active || p.stock === 0 ? <span className="image-tag sold">SOLD OUT</span> : null}</div>
-        <div className="product-info"><div className="product-title"><h3>{p.name}</h3><span>{isEarlyBird(p, epoch) && <del className="regular-price">{money(p.price_cents)}</del>}{money(priceAt(p, epoch))}</span></div><p className="product-detail">{p.detail}</p>
+        <div className={`product-image ${p.category}`}><ProductImage name={p.image} alt={`${p.name}: ${p.detail}`} eager={index < 3} />{p.preorder && <div className="image-badges"><span className="image-tag">PREORDER</span><span className="image-tag">MADE TO ORDER</span>{isEarlyBird(p, epoch) && <span className="image-tag">EARLY BIRD - UNTIL 29 OCT</span>}</div>}{!p.preorder && isEarlyBird(p, epoch) && <span className="image-tag">EARLY BIRD - UNTIL 29 OCT</span>}{!p.active || p.stock === 0 ? <span className="image-tag sold">SOLD OUT</span> : null}</div>
+        <div className="product-info"><div className="product-title"><h3>{p.name}</h3><span>{isEarlyBird(p, epoch) && <del className="regular-price">{money(p.price_cents)}</del>}{money(priceAt(p, epoch))}</span></div><p className="product-detail">{p.detail}</p><p className="product-material-detail">{p.material_detail}</p>
+          <button type="button" className="product-details-trigger" aria-haspopup="dialog" aria-expanded={detailsProductId === p.id} aria-controls={`details-${p.id}`} title={`More information about ${p.name}`} onClick={() => setDetailsProductId(detailsProductId === p.id ? null : p.id)}>More information <ArrowUpRight size={13} aria-hidden="true" /></button>
           {!p.preorder && loaded && <p className="stock-note">{p.stock} available</p>}
           <div className="product-actions">{p.sizes.length > 0 && <select aria-label={`${p.name} size`} value={sizes[p.id] || p.sizes[0]} disabled={locked} onChange={e => setSizes({ ...sizes, [p.id]: e.target.value })}>{p.sizes.map(option => <option key={option}>{option}</option>)}</select>}
             {quantity > 0 ? <QuantityStepper value={quantity} label={`${label} in collection`} minusDisabled={locked} plusDisabled={locked || !canAdd(p)} onMinus={() => changeSingle(p, size, -1)} onPlus={() => changeSingle(p, size, 1)} />
             : <button className="add-button" type="button" disabled={locked || !canAdd(p) || lines.length >= 50} onClick={() => changeSingle(p, size, 1)}>{!p.active || p.stock === 0 ? 'Sold out' : 'Add to order'}<Plus size={16} aria-hidden="true" /></button>}
           </div>
         </div>
+        {detailsProductId === p.id && <div className="product-details-backdrop" onClick={() => setDetailsProductId(null)} onKeyDown={event => {
+          if (event.key === 'Escape') { event.preventDefault(); setDetailsProductId(null); }
+        }}>
+          <section id={`details-${p.id}`} className="product-details-dialog" role="dialog" aria-labelledby={`details-title-${p.id}`} onClick={event => event.stopPropagation()}>
+            <div className="product-details-heading"><div><span className="eyebrow">PRODUCT DETAILS</span><h4 id={`details-title-${p.id}`}>{p.name}</h4></div><button type="button" className="product-details-close" aria-label={`Close ${p.name} details`} onClick={() => setDetailsProductId(null)}>×</button></div>
+            <ul>{p.specifications.map(specification => <li key={specification}>{specification}</li>)}</ul>
+          </section>
+        </div>}
       </article>;
       })}</div>
       {(category === 'all' || category === 'stickers') && <section className="bundle-builder" aria-labelledby="bundle-title"><div className="bundle-intro"><span className="eyebrow">BETTER TOGETHER</span><h3 id="bundle-title">Make a little sticker pack.</h3><p>Mix your favorites. Repeat a design. Make it yours.</p></div><div className="pack-options">{([3, 5] as const).map(size => <button type="button" key={size} aria-pressed={packSize === size} disabled={locked} onClick={() => setPackSize(size)}>{size} stickers <strong>{money(size === 3 ? settings.bundle_three_cents : settings.bundle_five_cents)}</strong></button>)}</div><div className="pack-choices">{packChoices.slice(0, packSize).map((id, i) => <StickerSelect key={i} label={`Sticker ${i + 1} in pack`} selected={find(id)} options={products.filter(p => p.category === 'stickers' && p.active)} disabled={locked} onChange={id => setPackChoices(previous => previous.map((value, index) => index === i ? id : value))} />)}</div><button type="button" className="primary-button" disabled={locked || lines.length >= 50} onClick={addPack}>Add {packSize}-sticker pack <span className="button-end">{money(packSize === 3 ? settings.bundle_three_cents : settings.bundle_five_cents)}<ArrowUpRight size={16} aria-hidden="true" /></span></button><p className="bundle-note">Pack prices apply only to packs you add here.</p></section>}
@@ -336,7 +370,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
 
     <aside className="order-panel" id="your-order" aria-labelledby="order-title"><div className="order-heading"><h2 id="order-title">Your order</h2><span className="count-badge">{count}</span></div>
       {showPackPrompt && <div className="pack-prompt" role="status"><p>{packHint}</p><button type="button" onClick={openPackBuilder}>Choose a pack</button></div>}
-      {receipt && <div className="confirmation" id="order-confirmation" tabIndex={-1} role="status"><span className="eyebrow">{receipt.status === 'cancelled' ? 'ORDER CANCELLED' : 'YOU’RE ALL SET'}</span><h3>{receipt.status === 'cancelled' ? 'This order was cancelled.' : 'A little AIMS, reserved.'}</h3><p>Reference: <strong>{receipt.id}</strong></p>{receipt.lines.map((l, i) => <p key={i}>{l.quantity} × {l.name} {l.size} — {money(l.total_cents)}</p>)}<p><strong>{money(receipt.total_cents)} · payment proof submitted</strong></p><p>{receipt.pickup_address}</p>{receipt.lines.some(l => l.preorder) && <p>Sweatshirt distribution timing will be based on the number of orders and shared by email.</p>}<p>Confirmation email queued. Keep this reference for pickup.</p></div>}
+      {receipt && <div className="confirmation" id="order-confirmation" tabIndex={-1} role="status"><span className="eyebrow">{receipt.status === 'cancelled' ? 'ORDER CANCELLED' : 'YOU’RE ALL SET'}</span><h3>{receipt.status === 'cancelled' ? 'This order was cancelled.' : 'A little AIMS, reserved.'}</h3><p>Reference: <strong>{receipt.id}</strong></p>{receipt.lines.map((l, i) => <p key={i}>{l.quantity} × {l.name} {l.size} — {money(l.total_cents)}</p>)}<p><strong>{money(receipt.total_cents)} · payment proof submitted</strong></p><p>{receipt.pickup_address}</p>{receipt.lines.some(l => l.preorder) && <p>Sweatshirt pick-up information will be sent over email in the coming weeks.</p>}<p>Please reach out to <a href="mailto:ainforms@uw.edu">ainforms@uw.edu</a> if you did not receive the confirmation email or have any questions. Keep this reference for pickup.</p></div>}
       {lines.length === 0 ? <div className="empty-order"><span className="empty-order-icon"><ShoppingBag size={20} aria-hidden="true" /></span><p>A little something for you?</p><small>Add your favorites to get started.</small></div> : <ul className="order-lines">{lines.map((line, i) => {
         const name = line.kind === 'single' ? find(line.product_id).name : `${line.size}-sticker pack`;
         const product = line.kind === 'single' ? find(line.product_id) : null;
@@ -346,10 +380,17 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
           <button type="button" disabled={locked} onClick={() => commit(lines.filter((_, index) => index !== i), `${name} removed.`)} aria-label={`Remove ${name}`}>Remove</button></div><span>{money(lineTotal(line))}</span></li>;
       })}</ul>}
       <div className="order-total"><span>Order total</span><strong>{money(total)}</strong></div>
+      <section className="zelle-payment" aria-labelledby="zelle-payment-title">
+        <h3 id="zelle-payment-title">Pay with Zelle</h3>
+        <p>Send your Zelle payment to <strong>ainforms@uw.edu</strong>. Scan this code in your banking app.</p>
+        <img src="/images/payment/zelle-payment.png" width="450" height="590" alt="Zelle payment QR code for AIMS at ainforms@uw.edu" loading="lazy" decoding="async" />
+      </section>
       <form onSubmit={checkout} noValidate>
-        <label className="email-label" htmlFor="email">Your email</label><input id="email" type="email" name="email" placeholder="you@uw.edu" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={254} pattern={emailPattern.source} required value={email} disabled={locked} aria-invalid={Boolean(emailError)} aria-describedby={emailError ? 'email-help email-error' : 'email-help'} onChange={e => { setEmail(e.target.value); if (emailError && validEmail(e.target.value)) setEmailError(''); }} onBlur={() => setEmailError(email && !validEmail(email) ? 'Enter a valid email address, such as you@example.com.' : '')} /><p id="email-help" className="field-help">For your confirmation and pickup updates.</p>
+        <label className="email-label" htmlFor="email">Your email</label><input id="email" type="email" name="email" placeholder="you@uw.edu" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={254} pattern={emailPattern.source} required value={email} disabled={locked} aria-invalid={Boolean(emailError)} aria-describedby={emailError ? 'email-help email-error' : 'email-help'} onChange={e => { setEmail(e.target.value); setEmailError(''); setEmailConfirmationError(''); }} onBlur={() => setEmailError(email && !validEmail(email) ? 'Enter a valid email address, such as you@example.com.' : '')} /><p id="email-help" className="field-help">For your confirmation and pickup updates.</p>
+        <label className="checkout-field" htmlFor="email-confirmation">Confirm email<input id="email-confirmation" type="email" name="email_confirmation" placeholder="Re-enter your email" autoComplete="off" inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={254} pattern={emailPattern.source} required value={emailConfirmation} disabled={locked} aria-invalid={Boolean(emailConfirmationError)} aria-describedby={emailConfirmationError ? 'email-confirmation-error' : undefined} onChange={e => { setEmailConfirmation(e.target.value); setEmailConfirmationError(''); }} onBlur={() => setEmailConfirmationError(emailConfirmation && email.trim().toLowerCase() !== emailConfirmation.trim().toLowerCase() ? 'Email addresses do not match.' : '')} />{emailConfirmationError && <span id="email-confirmation-error" className="field-help form-error" role="alert">{emailConfirmationError}</span>}</label>
         <label className="checkout-field" htmlFor="full-name">Full name<input id="full-name" name="full_name" autoComplete="name" maxLength={120} required value={customer.full_name} disabled={locked} onChange={e => setCustomer({ ...customer, full_name: e.target.value })} /></label>
-        <label className="checkout-field" htmlFor="phone-number">Phone number<input id="phone-number" name="phone_number" type="tel" autoComplete="tel" inputMode="tel" maxLength={30} required value={customer.phone_number} disabled={locked} onChange={e => setCustomer({ ...customer, phone_number: e.target.value })} /></label>
+        <label className="checkout-field" htmlFor="phone-number">Phone number<input id="phone-number" name="phone_number" type="tel" autoComplete="tel" inputMode="tel" maxLength={30} required value={customer.phone_number} disabled={locked} onChange={e => { setCustomer({ ...customer, phone_number: e.target.value }); setPhoneConfirmationError(''); }} /></label>
+        <label className="checkout-field" htmlFor="phone-confirmation">Confirm phone number<input id="phone-confirmation" name="phone_confirmation" type="tel" autoComplete="off" inputMode="tel" maxLength={30} required value={phoneConfirmation} disabled={locked} aria-invalid={Boolean(phoneConfirmationError)} aria-describedby={phoneConfirmationError ? 'phone-confirmation-error' : undefined} onChange={e => { setPhoneConfirmation(e.target.value); setPhoneConfirmationError(''); }} onBlur={() => setPhoneConfirmationError(phoneConfirmation && customer.phone_number.replace(/\D/g, '') !== phoneConfirmation.replace(/\D/g, '') ? 'Phone numbers do not match.' : '')} />{phoneConfirmationError && <span id="phone-confirmation-error" className="field-help form-error" role="alert">{phoneConfirmationError}</span>}</label>
         <label className="checkout-field" htmlFor="zelle-payer-name">Zelle payer name<input id="zelle-payer-name" name="zelle_payer_name" autoComplete="name" maxLength={120} required value={customer.zelle_payer_name} disabled={locked} onChange={e => setCustomer({ ...customer, zelle_payer_name: e.target.value })} /></label>
         <label className="checkout-field" htmlFor="payment-reference">Payment reference / memo <span>(optional)</span><input id="payment-reference" name="payment_reference" maxLength={500} value={customer.payment_reference} disabled={locked} onChange={e => setCustomer({ ...customer, payment_reference: e.target.value })} /></label>
         <fieldset id="pickup-option" className="pickup-options" disabled={locked}><legend>Pickup location</legend>{pickupOptions.map(option => <label key={option.value}><input id={`pickup-${option.value}`} type="radio" name="pickup_option" value={option.value} required checked={customer.pickup_option === option.value} onChange={e => setCustomer({ ...customer, pickup_option: e.target.value })} /><span><strong>{option.label}</strong><small>{option.detail}</small></span></label>)}</fieldset>
@@ -367,10 +408,14 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
           catch (readError) { setPaymentProof(null); setProofError(readError instanceof Error ? readError.message : 'The payment screenshot could not be read.'); }
         }} /><span id="proof-help" className="field-help">Upload a PNG, JPG, or WEBP image up to 1 MB. The image is stored privately with your order.</span>{paymentProof && <small className="proof-selected">Selected: {paymentProof.file_name}</small>}</label>
         {proofError && <p className="form-error" role="alert">{proofError}</p>}
-        <p className="field-help">Sweatshirt distribution will be based on the number of orders. Details will be communicated to the email provided.</p>
+        <p className="field-help">Sweatshirt pick-up information will be sent over email in the coming weeks.</p>
+        <label className="payment-confirmation" htmlFor="paid-total-confirmation">
+          <input id="paid-total-confirmation" type="checkbox" checked={paidTotalConfirmedCents === total} disabled={busy} onChange={event => setPaidTotalConfirmedCents(event.currentTarget.checked ? total : null)} />
+          <span>I confirm that I have paid the order total of <strong>{money(total)}</strong> shown above.</span>
+        </label>
         {emailError && <p id="email-error" className="form-error" role="alert">{emailError}</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
-        <button type="submit" className="primary-button checkout-button" disabled={busy || lines.length === 0 || (!pending && !ready)}>{busy ? 'Confirming your order…' : pending ? 'Retry this order safely' : 'Place pickup order'}<ArrowUpRight size={16} aria-hidden="true" /></button>
+        <button type="submit" className="primary-button checkout-button" disabled={busy || lines.length === 0 || paidTotalConfirmedCents !== total || (!pending && !ready)}>{busy ? 'Confirming your order…' : pending ? 'Retry this order safely' : 'Place pickup order'}<ArrowUpRight size={16} aria-hidden="true" /></button>
         {!ready && !pending && <p className="availability-note">{configured ? loaded ? 'Orders will open soon.' : 'Checking current availability…' : 'The collection is open for browsing. Ordering opens soon.'}</p>}
         {configured && !loaded && <button className="text-button" type="button" disabled={busy} onClick={() => { setError(''); void refresh(); }}>Refresh availability</button>}
         <p className="payment-note">Upload your Zelle payment confirmation to place your order.</p>

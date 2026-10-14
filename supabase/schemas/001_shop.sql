@@ -21,7 +21,7 @@ create table public.shop_settings (
   pickup_address text not null default '',
   orders_open boolean not null default false,
   bundle_three_cents integer not null default 399 check (bundle_three_cents > 0),
-  bundle_five_cents integer not null default 999 check (bundle_five_cents > 0)
+  bundle_five_cents integer not null default 749 check (bundle_five_cents > 0)
 );
 create table public.orders (
   id uuid primary key default gen_random_uuid(),

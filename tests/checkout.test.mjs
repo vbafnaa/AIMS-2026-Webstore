@@ -48,6 +48,7 @@ const order = () => ({
   email: ' STUDENT@example.com ',
   lines: [{ kind: 'single', product_id: 'cap', quantity: 1, size: '' }],
   expected_total_cents: 1999,
+  paid_total_confirmed_cents: 1999,
   customer: { full_name: 'Student Name', phone_number: '+1 206 555 0100', zelle_payer_name: 'Student Payer', payment_reference: '', pickup_option: 'mgh_440' },
   payment_proof: { file_name: 'payment.png', content_type: 'image/png', data: 'iVBORw0KGgo=' },
 });
@@ -110,6 +111,9 @@ test('rejects incomplete customer details and invalid orders before database wri
     { key: 'bad' },
     { expected_total_cents: -1 },
     { expected_total_cents: 1.5 },
+    { paid_total_confirmed_cents: 0 },
+    { paid_total_confirmed_cents: 1998 },
+    { paid_total_confirmed_cents: undefined },
     { lines: [] },
     { customer: { ...order().customer, full_name: ' ' } },
     { customer: { ...order().customer, phone_number: '123' } },
