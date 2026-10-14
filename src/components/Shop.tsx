@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUpRight, MapPin, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, ChevronLeft, ChevronRight, MapPin, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { catalog, money, type Product } from '../data/catalog';
 import imageData from '../data/assets.json';
 import StickerSelect from './StickerSelect';
@@ -70,6 +70,7 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
   const [clockOffset, setClockOffset] = useState(0);
   const [products, setProducts] = useState<Product[]>(catalog);
   const [detailsProductId, setDetailsProductId] = useState<string | null>(null);
+  const [crewneckSlide, setCrewneckSlide] = useState(0);
   const [settings, setSettings] = useState<Settings>(defaults);
   const [category, setCategory] = useState('all');
   const [lines, setLines] = useState<Line[]>([]);
@@ -344,8 +345,20 @@ export default function Shop({ url, apiKey, initialEpoch }: { url: string; apiKe
         const size = p.sizes.length ? sizes[p.id] || p.sizes[0] : '';
         const quantity = singleQty(p.id, size);
         const label = `${p.name}${size ? ` ${size}` : ''}`;
+        const designSlides = p.id === 'crewneck'
+          ? [p.image, ...p.gallery].map(name => ({
+            name,
+            label: name === p.image ? 'Sweatshirt' : name.includes('front') ? 'Front design' : 'Back design',
+          }))
+          : [];
+        const activeDesign = designSlides[crewneckSlide] || designSlides[0];
         return <article key={p.id} className="product-card">
-        <div className={`product-image ${p.category}`}><ProductImage name={p.image} alt={`${p.name}: ${p.detail}`} eager={index < 3} />{p.preorder && <div className="image-badges"><span className="image-tag">PREORDER</span><span className="image-tag">MADE TO ORDER</span>{isEarlyBird(p, epoch) && <span className="image-tag">EARLY BIRD - UNTIL 29 OCT</span>}</div>}{!p.preorder && isEarlyBird(p, epoch) && <span className="image-tag">EARLY BIRD - UNTIL 29 OCT</span>}{!p.active || p.stock === 0 ? <span className="image-tag sold">SOLD OUT</span> : null}</div>
+        <div className={`product-image ${p.category}${activeDesign ? ' crewneck-carousel' : ''}`}>
+          {activeDesign
+            ? <><ProductImage name={activeDesign.name} alt={`${p.name}: ${activeDesign.label}`} eager={index < 3} /><button type="button" className="crewneck-carousel-arrow previous" aria-label="Show previous crewneck image" onClick={() => setCrewneckSlide((crewneckSlide + designSlides.length - 1) % designSlides.length)}><ChevronLeft size={17} aria-hidden="true" /></button><button type="button" className="crewneck-carousel-arrow next" aria-label="Show next crewneck image" onClick={() => setCrewneckSlide((crewneckSlide + 1) % designSlides.length)}><ChevronRight size={17} aria-hidden="true" /></button><div className="crewneck-carousel-controls"><span aria-live="polite">{activeDesign.label}</span><div role="group" aria-label="Choose crewneck image">{designSlides.map((slide, slideIndex) => <button type="button" key={slide.name} aria-label={`Show ${slide.label.toLowerCase()}`} aria-pressed={slideIndex === crewneckSlide} onClick={() => setCrewneckSlide(slideIndex)} />)}</div></div></>
+            : <ProductImage name={p.image} alt={`${p.name}: ${p.detail}`} eager={index < 3} />}
+          {p.preorder && <div className="image-badges"><span className="image-tag">PREORDER</span><span className="image-tag">MADE TO ORDER</span>{isEarlyBird(p, epoch) && <span className="image-tag">EARLY BIRD - UNTIL 29 OCT</span>}</div>}{!p.preorder && isEarlyBird(p, epoch) && <span className="image-tag">EARLY BIRD - UNTIL 29 OCT</span>}{!p.active || p.stock === 0 ? <span className="image-tag sold">SOLD OUT</span> : null}
+        </div>
         <div className="product-info"><div className="product-title"><h3>{p.name}</h3><span>{isEarlyBird(p, epoch) && <del className="regular-price">{money(p.price_cents)}</del>}{money(priceAt(p, epoch))}</span></div><p className="product-detail">{p.detail}</p><p className="product-material-detail">{p.material_detail}</p>
           <button type="button" className="product-details-trigger" aria-haspopup="dialog" aria-expanded={detailsProductId === p.id} aria-controls={`details-${p.id}`} title={`More information about ${p.name}`} onClick={() => setDetailsProductId(detailsProductId === p.id ? null : p.id)}>More information <ArrowUpRight size={13} aria-hidden="true" /></button>
           {!p.preorder && loaded && <p className="stock-note">{p.stock} available</p>}

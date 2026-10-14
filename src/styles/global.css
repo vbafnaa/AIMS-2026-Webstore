@@ -70,6 +70,17 @@ footer { border-top: 1px solid #dfddd5; display: flex; align-items: center; gap:
 .empty-order-icon { display: inline-grid; place-items: center; }
 input[aria-invalid=true] { border-color: #9b3434; }
 .text-button { display: inline-flex; padding: 10px 14px; border-radius: 3px; text-decoration: none; background: #462b76; color: white; font-weight: 600; }
+.product-image.crewneck-carousel { padding: 0; background: #fff; }
+.product-image.crewneck-carousel img { padding: 14px; object-fit: contain; }
+.product-card:hover .product-image.crewneck-carousel img { transform: none; }
+.crewneck-carousel-arrow { position: absolute; z-index: 2; top: 50%; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid #e3dce7; border-radius: 50%; background: #fffefaeF; color: #462b76; transform: translateY(-50%); }
+.crewneck-carousel-arrow.previous { left: 8px; }
+.crewneck-carousel-arrow.next { right: 8px; }
+.crewneck-carousel-controls { position: absolute; z-index: 2; right: 10px; bottom: 10px; left: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid #e5dfe8; border-radius: 3px; background: #fffefaeF; color: #5e4a70; font-size: 9px; }
+.crewneck-carousel-controls > div { display: flex; align-items: center; gap: 7px; }
+.crewneck-carousel-controls button { width: 8px; height: 8px; padding: 0; border: 1px solid #8b78a2; border-radius: 50%; background: transparent; }
+.crewneck-carousel-controls button[aria-pressed=true] { border-color: #462b76; background: #462b76; }
+.crewneck-carousel-arrow:focus-visible, .crewneck-carousel-controls button:focus-visible { outline: 2px solid #462b76; outline-offset: 2px; }
 footer { flex-wrap: wrap; }
 footer .aims-logo { width: 80px; height: 40px; }
 footer .ischool-logo { width: 195px; }
