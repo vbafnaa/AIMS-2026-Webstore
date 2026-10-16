@@ -25,8 +25,31 @@ const apiKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY || import.meta.en
       <ol class="how-it-works" aria-label="How to order"><li><span class="step-number" aria-hidden="true">1</span><strong>Pick your favorites</strong></li><li><span class="step-number" aria-hidden="true">2</span><strong>Pay with Zelle</strong></li><li><span class="step-number" aria-hidden="true">3</span><strong>Upload proof & choose pickup</strong></li></ol>
       <noscript><p class="noscript-note">Browse the collection below. Please enable JavaScript to select items and place an order.</p></noscript>
       <Shop url={url} apiKey={apiKey} initialEpoch={Math.floor(Date.now() / 1000)} client:load />
+      <section class="fundraiser" aria-labelledby="fundraiser-title">
+        <div class="fundraiser-copy">
+          <p class="eyebrow">THE HEART BEHIND THE MERCH</p>
+          <h2 id="fundraiser-title">Designed by students,<br /><em>for our UW community.</em></h2>
+          <p>AIMS, the Association of Information Management Students, is the official student organization for the MS in Information Management. This little merch drop is made with love for the people who make our community feel like home.</p>
+        </div>
+        <div class="fundraiser-promise">
+          <strong>100%</strong>
+          <p>of proceeds support events and catering, helping shape the graduate school experience of MSIM students and alumni.</p>
+          <span>Good merch. Good people. Good cause.</span>
+        </div>
+      </section>
     </main>
-    <footer><Brand /><p>Keeping the human in the loop.<br /><span>Association of Information Management Students</span></p><a class="back-to-top" href="#top">Back to top <ArrowUp size={16} aria-hidden="true" /></a></footer>
+    <footer>
+      <Brand />
+      <p>Made with love in Seattle ♥.<br /><span>Association of Information Management Students</span></p>
+      <nav class="footer-contact" aria-label="Contact AIMS">
+        <strong>Find us</strong>
+        <a href="https://aims.ischool.uw.edu/" target="_blank" rel="noreferrer">AIMS website</a>
+        <a href="https://instagram.com/uwischoolaims" target="_blank" rel="noreferrer">Instagram</a>
+        <a href="https://linktr.ee/ainfoms" target="_blank" rel="noreferrer">Linktree</a>
+        <a href="mailto:ainfoms@uw.edu">ainfoms@uw.edu</a>
+      </nav>
+      <a class="back-to-top" href="#top">Back to top <ArrowUp size={16} aria-hidden="true" /></a>
+    </footer>
     <Analytics />
   </body>
 </html>
