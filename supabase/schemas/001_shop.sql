@@ -20,8 +20,8 @@ create table public.shop_settings (
   id boolean primary key default true check (id),
   pickup_address text not null default '',
   orders_open boolean not null default false,
-  bundle_three_cents integer not null default 599 check (bundle_three_cents > 0),
-  bundle_five_cents integer not null default 899 check (bundle_five_cents > 0)
+  bundle_three_cents integer not null default 699 check (bundle_three_cents > 0),
+  bundle_five_cents integer not null default 1099 check (bundle_five_cents > 0)
 );
 create table public.orders (
   id uuid primary key default gen_random_uuid(),

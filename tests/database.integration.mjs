@@ -42,7 +42,7 @@ test('real Postgres transaction, concurrency, and access-control checks', { skip
       { id: sticker, name: 'Test sticker', category: 'stickers', price_cents: 299, stock: 20, preorder: false },
       { id: preorder, name: 'Test preorder', category: 'wear', price_cents: 2999, stock: null, preorder: true, sizes: ['XS','S','M','L','XL','XXL'] },
     ])).status < 300);
-    assert.ok((await request('shop_settings', 'POST', { id: true, pickup_address: 'Test pickup only', orders_open: true, bundle_three_cents: 599, bundle_five_cents: 899 })).status < 300);
+    assert.ok((await request('shop_settings', 'POST', { id: true, pickup_address: 'Test pickup only', orders_open: true, bundle_three_cents: 699, bundle_five_cents: 1099 })).status < 300);
 
     await t.test('two concurrent buyers of the last unit: only one succeeds', async () => {
       const results = await Promise.all([place([single(cap)], 1999), place([single(cap)], 1999)]);
@@ -99,9 +99,9 @@ test('real Postgres transaction, concurrency, and access-control checks', { skip
     });
     await t.test('bundles and singles share the same inventory', async () => {
       await setStock(sticker, 5);
-      assert.match((await place([pack(3), pack(3)], 1198)).data.message, /OUT_OF_STOCK/);
+      assert.match((await place([pack(3), pack(3)], 1398)).data.message, /OUT_OF_STOCK/);
       assert.equal(await stock(sticker), 5);
-      const result = await place([pack(3), single(sticker, 2)], 1197);
+      const result = await place([pack(3), single(sticker, 2)], 1297);
       assert.equal(result.status, 200);
       assert.equal(await stock(sticker), 0);
       await rpc('cancel_order', { p_order_id: result.data.id });
@@ -110,7 +110,7 @@ test('real Postgres transaction, concurrency, and access-control checks', { skip
     });
     await t.test('bad packs, quantities and sizes are rejected', async () => {
       for (const [lines, price, error] of [
-        [[pack(3,2)], 599, /INVALID_BUNDLE/],
+        [[pack(3,2)], 699, /INVALID_BUNDLE/],
         [[single(cap,0)], 1999, /INVALID_QUANTITY/],
         [[single(cap,-1)], 1999, /INVALID_QUANTITY/],
         [[single(cap,1.5)], 1999, /INVALID_QUANTITY/],

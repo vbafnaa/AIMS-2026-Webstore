@@ -29,7 +29,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://supabase.test/rest/v1/products?**', route => route.fulfill({ headers: cors, json: catalog }));
-  await page.route('https://supabase.test/rest/v1/shop_settings?**', route => route.fulfill({ headers: cors, json: [{ id: true, orders_open: true, pickup_address: 'Test pickup address', bundle_three_cents: 599, bundle_five_cents: 899 }] }));
+  await page.route('https://supabase.test/rest/v1/shop_settings?**', route => route.fulfill({ headers: cors, json: [{ id: true, orders_open: true, pickup_address: 'Test pickup address', bundle_three_cents: 699, bundle_five_cents: 1099 }] }));
   const attempts = [];
   const proofUploads = [];
   let loseFirstResponse = true;
@@ -42,12 +42,12 @@ try {
     const body = route.request().postDataJSON();
     attempts.push(body);
     if (loseFirstResponse) { loseFirstResponse = false; await route.abort('failed'); return; }
-    await route.fulfill({ headers: cors, json: { email_status: 'queued', order: { id: '00000000-0000-4000-8000-000000000001', total_cents: body.expected_total_cents, pickup_address: 'Test pickup address', status: 'placed', lines: [{ name: 'Crewneck Sweatshirt', quantity: 1, size: 'S', total_cents: 2999, preorder: true }, { name: '3-sticker pack', quantity: 1, total_cents: 599, preorder: false }] } } });
+    await route.fulfill({ headers: cors, json: { email_status: 'queued', order: { id: '00000000-0000-4000-8000-000000000001', total_cents: body.expected_total_cents, pickup_address: 'Test pickup address', status: 'placed', lines: [{ name: 'Crewneck Sweatshirt', quantity: 1, size: 'S', total_cents: 2999, preorder: true }, { name: '3-sticker pack', quantity: 1, total_cents: 699, preorder: false }] } } });
   });
   await page.goto(base);
   await page.getByAltText('Zelle payment QR code for AIMS at ainforms@uw.edu').waitFor();
-  assert.match(await page.locator('.pack-options button').nth(0).innerText(), /5\.99/);
-  assert.match(await page.locator('.pack-options button').nth(1).innerText(), /8\.99/);
+  assert.match(await page.locator('.pack-options button').nth(0).innerText(), /6\.99/);
+  assert.match(await page.locator('.pack-options button').nth(1).innerText(), /10\.99/);
   await page.getByText('50 available', { exact: true }).waitFor();
   assert.equal(await page.locator('.product-card').count(), 9);
   const stickerCard = page.locator('.product-card').filter({ has: page.getByRole('heading', { name: 'Sticker 1', exact: true }) });
@@ -88,7 +88,7 @@ try {
   assert.match(await stickerChoice.innerText(), /Sticker 2/);
   assert.equal(await stickerChoice.getAttribute('aria-expanded'), 'false');
   await page.getByRole('button', { name: 'Add 3-sticker pack' }).click();
-  assert.match(await page.locator('.order-total').innerText(), /35.98/);
+  assert.match(await page.locator('.order-total').innerText(), /36.98/);
   const paymentConfirmation = page.getByLabel(/I confirm that I have paid the order total/);
   assert.equal(await page.getByRole('button', { name: 'Place pickup order' }).isDisabled(), true, 'checkout must stay disabled until payment is confirmed');
   await paymentConfirmation.check();
